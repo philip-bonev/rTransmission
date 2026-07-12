@@ -1,6 +1,13 @@
 const { invoke } = window.__TAURI__.core;
 
 window.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('close-btn')?.addEventListener('click', async () => {
+    try {
+      await invoke('exit_app');
+    } catch (error) {
+      console.error('Failed to close app:', error);
+    }
+  });
   const cliFile = await invoke('get_cli_file');
   if (cliFile) {
     await openFileByPath(cliFile);
