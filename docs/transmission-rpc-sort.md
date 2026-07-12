@@ -8,103 +8,108 @@
 
 Добре е потребителят да вижда коя колона е сортирана в момента.
 
-`th { cursor: pointer; user-select: none; }`  
-`th.sort-asc::after { content: " ↑"; }`  
-`th.sort-desc::after { content: " ↓"; }`
+```javascript
+th { cursor: pointer; user-select: none; }
+th.sort-asc::after { content: " ↑"; }
+th.sort-desc::after { content: " ↓"; }
+```
 
 ## **2\. Добавяне на логиката за сортиране в JavaScript**
 
 Ще въведем две променливи, които да помнят коя е **актуалната колона за сортиране** и в каква **посока** (възходяща или низходяща) е тя. Тъй като данните се обновяват всяка секунда от Rust, ние ще прилагаме това сортиране **както при клик, така и автоматично при всяко ново събитие**, за да не се разваля редът на торентите.
 
-*`// Пазим състоянието на сортирането`*  
-`let currentSortColumn = 'id'; // По подразбиране сортираме по ID`  
-`let isAscending = true;       // По подразбиране е възходящо (ascending)`
+```rust
+// Пазим състоянието на сортирането  
+let currentSortColumn = 'id'; // По подразбиране сортираме по ID  
+let isAscending = true;       // По подразбиране е възходящо (ascending)
 
-*`// 1. Модифицираме renderHeaders(), за да хващаме кликванията`*  
-`fn renderHeaders() {`  
-  `theadRow.innerHTML = '';`  
+// 1. Модифицираме renderHeaders(), за да хващаме кликванията  
+fn renderHeaders() {  
+  theadRow.innerHTML = '';  
     
-  `currentColumns.forEach(col => {`  
-    `const th = document.createElement('th');`  
-    `th.textContent = col.description;`  
-    `th.setAttribute('data-col-id', col.id);`  
+  currentColumns.forEach(col => {  
+    const th = document.createElement('th');  
+    th.textContent = col.description;  
+    th.setAttribute('data-col-id', col.id);  
       
-    `// Добавяме визуален маркер, ако това е сортираната колона`  
-    `if (col.id === currentSortColumn) {`  
-      `th.className = isAscending ? 'sort-asc' : 'sort-desc';`  
-    `}`
+    // Добавяме визуален маркер, ако това е сортираната колона  
+    if (col.id === currentSortColumn) {  
+      th.className = isAscending ? 'sort-asc' : 'sort-desc';  
+    }
 
-    `// СЪБИТИЕ ПРИ КЛИК: Потребителят сортира ръчно`  
-    `th.addEventListener('click', () => {`  
-      `if (currentSortColumn === col.id) {`  
-        `// Ако кликне пак на същата колона, обръщаме посоката`  
-        `isAscending = !isAscending;`  
-      `} else {`  
-        `// Ако кликне на нова колона, сортираме по нея във възходящ ред`  
-        `currentSortColumn = col.id;`  
-        `isAscending = true;`  
-      `}`  
+    // СЪБИТИЕ ПРИ КЛИК: Потребителят сортира ръчно  
+    th.addEventListener('click', () => {  
+      if (currentSortColumn === col.id) {  
+        // Ако кликне пак на същата колона, обръщаме посоката  
+        isAscending = !isAscending;  
+      } else {  
+        // Ако кликне на нова колона, сортираме по нея във възходящ ред  
+        currentSortColumn = col.id;  
+        isAscending = true;  
+      }  
         
-      `// Преначертаваме заглавията (за да се преместят стрелките ↑/↓)`  
-      `renderHeaders();`  
-      `// Сортираме таблицата веднага`  
-      `sortTableHTML();`  
-    `});`
+      // Преначертаваме заглавията (за да се преместят стрелките ↑/↓)  
+      renderHeaders();  
+      // Сортираме таблицата веднага  
+      sortTableHTML();  
+    });
 
-    `theadRow.appendChild(th);`  
-  `});`  
-`}`
+    theadRow.appendChild(th);  
+  });  
+}
 
-*`// 2. Функция, която извършва физическото сортиране в HTML`*  
-`function sortTableHTML() {`  
-  `const rowsArray = Array.from(tbody.querySelectorAll('tr'));`  
+// 2. Функция, която извършва физическото сортиране в HTML  
+function sortTableHTML() {  
+  const rowsArray = Array.from(tbody.querySelectorAll('tr'));  
     
-  `rowsArray.sort((a, b) => {`  
-    `// Взимаме текстовото съдържание на клетките, които сравняваме`  
-    ``const cellA = a.querySelector(`.cell-${currentSortColumn}`)?.textContent || '';``  
-    ``const cellB = b.querySelector(`.cell-${currentSortColumn}`)?.textContent || '';``
+  rowsArray.sort((a, b) => {  
+    // Взимаме текстовото съдържание на клетките, които сравняваме  
+    const cellA = a.querySelector(.cell-${currentSortColumn})?.textContent || '';  
+    const cellB = b.querySelector(.cell-${currentSortColumn})?.textContent || '';
 
-    `// Проверка дали стойностите са числа (напр. ID, Прогрес, Скорост), за да сортира правилно`  
-    `// (Ако сортираме числа като текст, "10" ще отиде преди "2")`  
-    `const numA = parseFloat(cellA);`  
-    `const numB = parseFloat(cellB);`
+    // Проверка дали стойностите са числа (напр. ID, Прогрес, Скорост), за да сортира правилно  
+    // (Ако сортираме числа като текст, "10" ще отиде преди "2")  
+    const numA = parseFloat(cellA);  
+    const numB = parseFloat(cellB);
 
-    `if (!isNaN(numA) && !isNaN(numB)) {`  
-      `// Сортиране на числа`  
-      `return isAscending ? numA - numB : numB - numA;`  
-    `} else {`  
-      `// Сортиране на текст (алфабетно, с поддръжка на кирилица)`  
-      `return isAscending`   
-        `? cellA.localeCompare(cellB)`   
-        `: cellB.localeCompare(cellA);`  
-    `}`  
-  `});`
+    if (!isNaN(numA) && !isNaN(numB)) {  
+      // Сортиране на числа  
+      return isAscending ? numA - numB : numB - numA;  
+    } else {  
+      // Сортиране на текст (алфабетно, с поддръжка на кирилица)  
+      return isAscending   
+        ? cellA.localeCompare(cellB)   
+        : cellB.localeCompare(cellA);  
+    }  
+  });
 
-  `// Пренареждаме редовете в DOM дървото`  
-  `// appendChild на съществуващ елемент автоматично го премества най-отдолу, без да го дублира`  
-  `rowsArray.forEach(row => tbody.appendChild(row));`  
-`}`
+  // Пренареждаме редовете в DOM дървото  
+  // appendChild на съществуващ елемент автоматично го премества най-отдолу, без да го дублира  
+  rowsArray.forEach(row => tbody.appendChild(row));  
+}
 
-## **3\. Обвързване с таймера (Rust Events)**
+## 3\. Обвързване с таймера (Rust Events)
 
 За да остане таблицата сортирана, когато в следващата секунда Transmission върне нови скорости на сваляне или нов прогрес, просто извикайте функцията sortTableHTML() най-отдолу вътре в слушателя на събития (initRowListener), веднага след блока else:
 
-`async function initRowListener() {`  
-  `await listen('row-update', (event) => {`  
-    `const torrent = event.payload;`  
-    `if (!torrent.id) return;`
+```javascript
+async function initRowListener() {  
+  await listen('row-update', (event) => {  
+    const torrent = event.payload;  
+    if (!torrent.id) return;
 
-    `const existingRow = domRowsCache.get(torrent.id);`  
-    `if (existingRow) {`  
-      `// ... (обновяване на клетките) ...`  
-    `} else {`  
-      `// ... (създаване на нов ред) ...`  
-    `}`
+    const existingRow = domRowsCache.get(torrent.id);  
+    if (existingRow) {  
+      // ... (обновяване на клетките) ...  
+    } else {  
+      // ... (създаване на нов ред) ...  
+    }
 
-    `// ИЗВИКВА СЕ ТУК: Сортираме след всяко пристигнало обновление от Rust`  
-    `sortTableHTML();`   
-  `});`  
-`}`
+    // ИЗВИКВА СЕ ТУК: Сортираме след всяко пристигнало обновление от Rust  
+    sortTableHTML();   
+  });  
+}
+```
 
 ## **Защо това решение на чист JS е перфектно?**
 

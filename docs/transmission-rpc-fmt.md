@@ -11,62 +11,62 @@
 
 Вместо обикновен низ, правим функция в Rust, която пресмята размерите и скоростите, и ги пакетира в структура, удобна за JSON сериализация.
 
-`use serde::Serialize;`  
-`use std::collections::HashMap;`
+```rust
+use serde::Serialize;  
+use std::collections::HashMap;
 
-`#[derive(Serialize)]`  
-`struct CellData {`  
-    `raw: u64,           // За сортиране в JS (число)`  
-    `formatted: String,  // За показване в HTML (текст)`  
-`}`
+#[derive(Serialize)]  
+struct CellData {  
+    raw: u64,           // За сортиране в JS (число)  
+    formatted: String,  // За показване в HTML (текст)  
+}
 
-*`// Помощна функция за превръщане на байтове в красив текст (B, KB, MB, GB)`*  
-`fn format_bytes(bytes: u64, is_speed: bool) -> CellData {`  
-    `let suffix = if is_speed { "/s" } else { "" };`  
+// Помощна функция за превръщане на байтове в красив текст (B, KB, MB, GB)  
+fn format_bytes(bytes: u64, is_speed: bool) -> CellData {  
+    let suffix = if is_speed { "/s" } else { "" };  
       
-    `if bytes >= 1_073_741_824 {`  
-        `CellData {`  
-            `raw: bytes,`  
-            `formatted: format!("{:.2} GB{}", bytes as f64 / 1_073_741_824.0, suffix),`  
-        `}`  
-    `} else if bytes >= 1_048_576 {`  
-        `CellData {`  
-            `raw: bytes,`  
-            `formatted: format!("{:.2} MB{}", bytes as f64 / 1_048_576.0, suffix),`  
-        `}`  
-    `} else if bytes >= 1024 {`  
-        `CellData {`  
-            `raw: bytes,`  
-            `formatted: format!("{:.2} KB{}", bytes as f64 / 1024.0, suffix),`  
-        `}`  
-    `} else {`  
-        `CellData {`  
-            `raw: bytes,`  
-            `formatted: format!("{} B{}", bytes, suffix),`  
-        `}`  
-    `}`  
-`}`
+    if bytes >= 1_073_741_824 {  
+        CellData {  
+            raw: bytes,  
+            formatted: format!("{:.2} GB{}", bytes as f64 / 1_073_741_824.0, suffix),  
+        }  
+    } else if bytes >= 1_048_576 {  
+        CellData {  
+            raw: bytes,  
+            formatted: format!("{:.2} MB{}", bytes as f64 / 1_048_576.0, suffix),  
+        }  
+    } else if bytes >= 1024 {  
+        CellData {  
+            raw: bytes,  
+            formatted: format!("{:.2} KB{}", bytes as f64 / 1024.0, suffix),  
+        }  
+    } else {  
+        CellData {  
+            raw: bytes,  
+            formatted: format!("{} B{}", bytes, suffix),  
+        }  
+    }  
+}
 
-*`// Вътре в цикъла, където обработвате данните от Transmission RPC:`*  
-*`// (Примерен торент със скорост 12,5 MB/s и размер 4,2 GB)`*  
-`let mut torrent = HashMap::new();`
+// Вътре в цикъла, където обработвате данните от Transmission RPC:  
+// (Примерен торент със скорост 12,5 MB/s и размер 4,2 GB)  
+let mut torrent = HashMap::new();
 
-*`// ID-то винаги си остава просто число/текст`*  
-`let id_cell = CellData { raw: 1, formatted: "1".into() };`  
-`torrent.insert("id".to_string(), serde_json::to_value(&id_cell).unwrap());`
+// ID-то винаги си остава просто число/текст  
+let id_cell = CellData { raw: 1, formatted: "1".into() };  
+torrent.insert("id".to_string(), serde_json::to_value(&id_cell).unwrap());
 
-*`// Форматираме размера (4.2 GB)`*  
-`let size_cell = format_bytes(4_509_715_660, false);`  
-`torrent.insert("size".to_string(), serde_json::to_value(&size_cell).unwrap());`
+// Форматираме размера (4.2 GB)  
+let size_cell = format_bytes(4_509_715_660, false);  
+torrent.insert("size".to_string(), serde_json::to_value(&size_cell).unwrap());
 
-*`// Форматираме скоростта на сваляне (12.5 MB/s)`*  
-`let speed_cell = format_bytes(13_107_200, true);`  
-`torrent.insert("download_speed".to_string(), serde_json::to_value(&speed_cell).unwrap());`
+// Форматираме скоростта на сваляне (12.5 MB/s)  
+let speed_cell = format_bytes(13_107_200, true);  
+torrent.insert("download_speed".to_string(), serde_json::to_value(&speed_cell).unwrap());
 
-*`// Излъчваме събитието към JS`*  
-*`// main_window.emit("row-update", &torrent);`*
-
-## ---
+// Излъчваме събитието към JS
+main_window.emit("row-update", &torrent);
+```
 
 **2\. Фронтенд (JavaScript)**
 
@@ -76,66 +76,72 @@
 
 ## **Промяна при създаване на ред (createRowElement):**
 
-`function createRowElement(rowData) {`  
-  `const tr = document.createElement('tr');`  
-  `tr.setAttribute('data-id', rowData.id.raw); // Взимаме raw за ID-то`
+```javascript
+function createRowElement(rowData) {  
+  const tr = document.createElement('tr');  
+  tr.setAttribute('data-id', rowData.id.raw); // Взимаме raw за ID-то
 
-  `currentColumns.forEach(col => {`  
-    `const td = document.createElement('td');`  
-    ``td.className = `cell-${col.id}`;``  
+  currentColumns.forEach(col => {  
+    const td = document.createElement('td');  
+    td.className = cell-${col.id};  
       
-    `if (rowData[col.id]) {`  
-      `// Записваме суровата стойност в скрит атрибут за нуждите на сортирането`  
-      `td.setAttribute('data-raw', rowData[col.id].raw);`  
-      `// Показваме красивия текст на потребителя`  
-      `td.textContent = rowData[col.id].formatted;`  
-    `}`  
+    if (rowData[col.id]) {  
+      // Записваме суровата стойност в скрит атрибут за нуждите на сортирането  
+      td.setAttribute('data-raw', rowData[col.id].raw);  
+      // Показваме красивия текст на потребителя  
+      td.textContent = rowData[col.id].formatted;  
+    }  
       
-    `tr.appendChild(td);`  
-  `});`
+    tr.appendChild(td);  
+  });
 
-  `return tr;`  
-`}`
+  return tr;  
+}
+```
 
 ## **Промяна при обновление на ред (handleRowUpdate):**
 
-*`// Вътре в existingRow блока, където обновяваме клетките:`*  
-`currentColumns.forEach(col => {`  
-  ``const cell = existingRow.querySelector(`.cell-${col.id}`);``  
-  `if (cell && rowData[col.id]) {`  
-    `const newRaw = String(rowData[col.id].raw);`  
-    `const newFormatted = rowData[col.id].formatted;`  
+```javascript
+// Вътре в existingRow блока, където обновяваме летките:
+currentColumns.forEach(col => {  
+  const cell = existingRow.querySelector(.cell-${col.id});  
+  if (cell && rowData[col.id]) {  
+    const newRaw = String(rowData[col.id].raw);  
+    const newFormatted = rowData[col.id].formatted;  
       
-    `// Оптимизация: Обновяваме само ако стойността се е променила реално`  
-    `if (cell.getAttribute('data-raw') !== newRaw) {`  
-      `cell.setAttribute('data-raw', newRaw);`  
-      `cell.textContent = newFormatted;`  
-    `}`  
-  `}`  
-`});`
+    // Оптимизация: Обновяваме само ако стойността се е роменила реално  
+    if (cell.getAttribute('data-raw') !== newRaw) {  
+      cell.setAttribute('data-raw', newRaw);  
+      cell.textContent = newFormatted;  
+    }  
+  }  
+});
+```
 
 ## **Промяна във функцията за сортиране (sortTableHTML):**
 
 Сега сортирането става невероятно просто и 100% точно, защото вместо да гадаем дали стойността е текст или число, ние директно сравняваме числата в атрибута data-raw\!
 
-`function sortTableHTML() {`  
-  `const rowsArray = Array.from(tbody.querySelectorAll('tr'));`  
+```javascript
+function sortTableHTML() {  
+  const rowsArray = Array.from(tbody.querySelectorAll('tr'));  
     
-  `rowsArray.sort((a, b) => {`  
-    ``const cellA = a.querySelector(`.cell-${currentSortColumn}`);``  
-    ``const cellB = b.querySelector(`.cell-${currentSortColumn}`);``  
+  rowsArray.sort((a, b) => {  
+    const cellA = a.querySelector(.cell-${currentSortColumn});  
+    const cellB = b.querySelector(.cell-${currentSortColumn});  
       
-    `// Взимаме суровите числови стойности (байтове, проценти, секунди)`  
-    `const rawA = parseFloat(cellA?.getAttribute('data-raw') || '0');`  
-    `const rawB = parseFloat(cellB?.getAttribute('data-raw') || '0');`
+    // Взимаме суровите числови стойности (байтове, проценти, секунди)  
+    const rawA = parseFloat(cellA?.getAttribute('data-raw') || '0');  
+    const rawB = parseFloat(cellB?.getAttribute('data-raw') || '0');
 
-    `// Сортираме математически чистото число в байтове`  
-    `return isAscending ? rawA - rawB : rawB - rawA;`  
-  `});`
+    // Сортираме математически чистото число в байтове  
+    return isAscending ? rawA - rawB : rawB - rawA;  
+  });
 
-  `// Преместваме ги в DOM`  
-  `rowsArray.forEach(row => tbody.appendChild(row));`  
-`}`
+  // Преместваме ги в DOM  
+  rowsArray.forEach(row => tbody.appendChild(row));  
+}
+```
 
 ## **Защо тази архитектура е перфектна за Transmission?**
 

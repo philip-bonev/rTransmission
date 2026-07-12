@@ -28,25 +28,27 @@
 
 За да може таблицата ви автоматично да се пренарежда на екрана правилно, когато позициите в опашката се променят, променете само края на функцията handleRowUpdate в JavaScript кода по следния начин:
 
-*`// Когато създаваме или обновяваме ред, пазим неговата позиция в опашката`*  
-`if (existingRow) {`  
-  `// ... (обновяването на клетките си остава същото) ...`  
-  `existingRow.setAttribute('data-queue', torrent.queuePosition);`   
-`} else {`  
-  `const newRow = createRowElement(torrent);`  
-  `newRow.setAttribute('data-queue', torrent.queuePosition); // Записваме позицията в атрибут`  
-  `tbody.appendChild(newRow);`  
-  `domRowsCache.set(torrent.id, newRow);`  
-`}`
+```javascript
+// Когато създаваме или обновяваме ред, пазим неговата позиция в опашката
+if (existingRow) {
+  // ... (обновяването на клетките си остава същото) ...
+  existingRow.setAttribute('data-queue', torrent.queuePosition);
+} else {
+  const newRow = createRowElement(torrent);
+  newRow.setAttribute('data-queue', torrent.queuePosition); // Записваме позицията в атрибут
+  tbody.appendChild(newRow);
+  domRowsCache.set(torrent.id, newRow);
+}
 
-*`// СОРТИРАНЕ НА ЕКРАНА: След всяко обновление подреждаме HTML елементите в DOM`*  
-`const rowsArray = Array.from(tbody.querySelectorAll('tr'));`  
-`rowsArray.sort((a, b) => {`  
-  `return Number(a.getAttribute('data-queue')) - Number(b.getAttribute('data-queue'));`  
-`});`
+// СОРТИРАНЕ НА ЕКРАНА: След всяко обновление подреждаме HTML елементите в DOM
+const rowsArray = Array.from(tbody.querySelectorAll('tr'));
+rowsArray.sort((a, b) => {
+  return Number(a.getAttribute('data-queue')) - Number(b.getAttribute('data-queue'));
+});
 
-*`// Пренареждаме ги физически в HTML (appendChild върху съществуващ елемент просто го премества)`*  
-`rowsArray.forEach(row => tbody.appendChild(row));`
+// Пренареждаме ги физически в HTML (appendChild върху съществуващ елемент просто го премества)
+rowsArray.forEach(row => tbody.appendChild(row));
+```
 
 По този начин торентите ще имат перфектно фиксирана идентичност в JS чрез реалното си id, но визуално ще се движат нагоре-надолу по екрана плавно и в пълен синхрон с опашката на Transmission.
 
