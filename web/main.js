@@ -1,18 +1,27 @@
 const { invoke } = window.__TAURI__.core;
 
+let currentFilePath = null;
+
+const closeBtn = document.getElementById('close-btn');
+
+function updateFileName(name) {
+  fileName.textContent = name;
+}
+
+async function closeApp() {
+  try {
+    await invoke('exit_app');
+  } catch (error) {
+    console.error('Failed to close app:', error);
+  }
+}
+
+closeBtn?.addEventListener('click', closeApp);
+
 window.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('close-btn')?.addEventListener('click', async () => {
-    try {
-      await invoke('exit_app');
-    } catch (error) {
-      console.error('Failed to close app:', error);
-    }
-  });
   const cliFile = await invoke('get_cli_file');
   if (cliFile) {
     await openFileByPath(cliFile);
-  } else {
-    showPlaceholder();
   }
 
   const body = document.body;
