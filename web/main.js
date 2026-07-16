@@ -19,6 +19,13 @@ async function closeApp() {
 closeBtn?.addEventListener('click', closeApp);
 
 window.addEventListener('DOMContentLoaded', async () => {
+  Split(['#sidebar', '#torrent-viewer'], {
+    sizes:[10, 90],      // Начални размери в проценти (25% за сайдбара, 75% за торент панела)
+    minSize:[120, 100],  // Минимален размер в пиксели [за #sidebar, за #torrent-viewer]
+    gutterSize: 6,        // Дебелина на сплитер линията в пиксели
+    cursor: 'col-resize'  // Вид на курсора при посочване
+  });
+
   const cliFile = await invoke('get_cli_file');
   if (cliFile) {
     await openFileByPath(cliFile);
