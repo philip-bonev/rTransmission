@@ -1,10 +1,11 @@
-  * {
+* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-  }
+}
 
-  :root {
+:root,
+[data-theme="dark"] {
     --bg-primary: #1a1a1a;
     --bg-secondary: #2d2d2d;
     --bg-toolbar: #252525;
@@ -14,10 +15,24 @@
     --accent-color: #4a9eff;
     --accent-hover: #3a8eef;
     --disabled-color: #555555;
-  }
+    --drag-over-bg: #2a3a4a;
+}
 
-  html,
-  body {
+[data-theme="light"] {
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --bg-toolbar: #e8e8e8;
+    --text-primary: #1a1a1a;
+    --text-secondary: #666666;
+    --border-color: #d0d0d0;
+    --accent-color: #4a9eff;
+    --accent-hover: #3a8eef;
+    --disabled-color: #aaaaaa;
+    --drag-over-bg: #d0e4f5;
+}
+
+html,
+body {
     height: 100%;
     overflow: hidden;
     background-color: var(--bg-primary);
@@ -25,13 +40,18 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     font-size: 14px;
     transition: background-color 0.2s ease;
-  }
+}
 
-  body.drag-over {
-    background-color: #2a3a4a;
-  }
+body {
+    display: flex;
+    flex-direction: column;
+}
 
-  body.drag-over::after {
+body.drag-over {
+    background-color: var(--drag-over-bg);
+}
+
+body.drag-over::after {
     content: '';
     position: fixed;
     inset: 0;
@@ -40,65 +60,281 @@
     z-index: 9999;
     margin: 8px;
     border-radius: 8px;
-  }
+}
 
-  #toolbar {
+#toolbar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 16px;
+    gap: 4px;
+    padding: 0 12px;
     background-color: var(--bg-toolbar);
     border-bottom: 1px solid var(--border-color);
-    height: 48px;
+    height: 38px;
     user-select: none;
-  }
+    -webkit-app-region: drag;
+}
 
-  .toolbar-btn {
+.toolbar-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    background-color: var(--bg-secondary);
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
     color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border: none;
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 400;
     transition: all 0.15s ease;
-  }
+    -webkit-app-region: no-drag;
+    opacity: 0.75;
+}
 
-  .toolbar-btn svg {
+.toolbar-btn svg {
     pointer-events: none;
-  }
+}
 
-  .toolbar-btn:hover:not(:disabled) {
-    background-color: var(--accent-color);
-    border-color: var(--accent-color);
-  }
+.toolbar-btn:hover:not(:disabled) {
+    opacity: 1;
+    background-color: var(--border-color);
+}
 
-  .toolbar-btn:active:not(:disabled) {
-    background-color: var(--accent-hover);
-  }
+.toolbar-btn:active:not(:disabled) {
+    opacity: 1;
+    background-color: var(--text-secondary);
+}
 
-  .toolbar-btn:disabled {
-    opacity: 0.5;
+.toolbar-btn:disabled {
+    opacity: 0.3;
     cursor: not-allowed;
-  }
+}
 
-  #torrent-viewer {
-    height: 100%;
-    /* Заема цялата височина на #placeholder */
-    border: 1px solid var(--border-color);
+#torrent-viewer {
+    flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
     scroll-behavior: smooth;
     position: relative;
-    flex: 1;
     background-color: var(--bg-primary);
-    margin-top: 8px;
-    margin-left: 1px;
-    margin-bottom: 8px;
-    border-radius: 20px;
-    padding: 20px;
-  }
+    padding: 8px;
+}
+
+.torrent-card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 6px;
+    transition: all 0.15s ease;
+}
+
+.torrent-card:hover {
+    border-color: var(--accent-color);
+}
+
+.torrent-card-row {
+    display: flex;
+    align-items: center;
+}
+
+.torrent-card-row:first-child {
+    margin-bottom: 6px;
+}
+
+.torrent-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.torrent-status {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: 12px;
+    white-space: nowrap;
+}
+
+.status-downloading { color: #4CAF50; }
+.status-seeding { color: #2196F3; }
+.status-stopped { color: var(--text-secondary); }
+.status-checking { color: #FF9800; }
+.status-waiting { color: var(--text-secondary); }
+.status-stalled { color: #FF9800; }
+
+.torrent-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.torrent-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.torrent-stat-value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.torrent-stat-label {
+    color: var(--text-secondary);
+}
+
+#torrent-list {
+    display: flex;
+    flex-direction: column;
+}
+
+#empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    font-size: 14px;
+    text-align: center;
+    padding: 40px;
+}
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.dialog {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0;
+    width: 360px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dialog-header h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.dialog-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.dialog-close-btn:hover {
+    color: var(--text-primary);
+}
+
+#settings-form {
+    padding: 16px 20px 20px;
+}
+
+.form-group {
+    margin-bottom: 14px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="password"] {
+    width: 100%;
+    padding: 8px 10px;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.form-group input:focus {
+    border-color: var(--accent-color);
+}
+
+.checkbox-label {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px !important;
+    color: var(--text-primary) !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+}
+
+#auth-fields {
+    padding-left: 24px;
+    border-left: 2px solid var(--border-color);
+    margin-bottom: 4px;
+}
+
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.dialog-btn-primary {
+    padding: 8px 24px;
+    background-color: var(--accent-color);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.dialog-btn-primary:hover {
+    background-color: var(--accent-hover);
+}
