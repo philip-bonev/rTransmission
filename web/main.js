@@ -4,6 +4,8 @@ const { open } = window.__TAURI__.dialog;
 
 let connected = false;
 const selectedIds = new Set();
+let filterState = 'all';
+let torrentsCache = [];
 
 function formatPercent(percent) {
   return (percent * 100).toFixed(1) + '%';
@@ -81,12 +83,42 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function matchesFilter(torrent) {
+  switch (filterState) {
+    case 'downloading':
+      return torrent.status === 'Downloading';
+    case 'paused':
+      return torrent.status === 'Stopped';
+    case 'seeding':
+      return torrent.status === 'Seeding';
+    case 'verifying':
+      return torrent.status === 'Checking' || torrent.status === 'Waiting to check';
+    case 'finished':
+      return torrent.percent_done >= 1.0 && torrent.status === 'Stopped';
+    default:
+      return true;
+  }
+}
+
 function renderTorrents(torrents) {
+  torrentsCache = torrents || [];
   const list = document.getElementById('torrent-list');
   const empty = document.getElementById('empty-state');
 
-  if (!torrents || torrents.length === 0) {
+  const filtered = torrentsCache.filter(matchesFilter);
+
+  if (torrentsCache.length === 0) {
     list.innerHTML = '';
+    empty.querySelector('p').textContent = 'Connect to a Transmission daemon to get started';
+    empty.style.display = '';
+    selectedIds.clear();
+    updateActionButtons();
+    return;
+  }
+
+  if (filtered.length === 0) {
+    list.innerHTML = '';
+    empty.querySelector('p').textContent = 'No torrents match the selected filter';
     empty.style.display = '';
     selectedIds.clear();
     updateActionButtons();
@@ -100,7 +132,7 @@ function renderTorrents(torrents) {
     existingIds.add(child.dataset.id);
   }
 
-  const newIds = new Set(torrents.map(t => String(t.id)));
+  const newIds = new Set(filtered.map(t => String(t.id)));
 
   for (const child of list.children) {
     if (!newIds.has(child.dataset.id)) {
@@ -114,7 +146,7 @@ function renderTorrents(torrents) {
     }
   }
 
-  for (const t of torrents) {
+  for (const t of filtered) {
     const id = String(t.id);
     const existing = list.querySelector(`[data-id="${id}"]`);
     if (existing) {
@@ -127,8 +159,28 @@ function renderTorrents(torrents) {
   applySelection();
 }
 
+function updateAltSpeedState(info) {
+  const enabled = !!(info && (typeof info === 'boolean' ? info : info.enabled));
+  const btn = document.getElementById('alt-speed-btn');
+  if (btn) {
+    btn.classList.toggle('active', enabled);
+  }
+  const alt = document.getElementById('status-alt-speed');
+  if (alt) {
+    if (info && typeof info === 'object' && enabled) {
+      alt.textContent =
+        `· Slow mode: ↓ ${formatSpeed(info.download_limit)} ↑ ${formatSpeed(info.upload_limit)}`;
+      alt.classList.remove('hidden');
+    } else {
+      alt.textContent = '';
+      alt.classList.add('hidden');
+    }
+  }
+}
+
 function updateConnectionState(isConnected) {
   connected = isConnected;
+  updateAltSpeedState(false);
   const conn = document.getElementById('status-connection');
   if (conn) {
     conn.textContent = isConnected ? '● Connected' : '● Disconnected';
@@ -170,7 +222,7 @@ function applySelection() {
 
 function updateActionButtons() {
   const hasSelection = connected && selectedIds.size > 0;
-  for (const id of ['start-btn', 'pause-btn', 'delete-btn']) {
+  for (const id of ['start-btn', 'pause-btn', 'verify-btn', 'delete-btn']) {
     document.getElementById(id).disabled = !hasSelection;
   }
 }
@@ -180,7 +232,7 @@ async function getSettings() {
     return await invoke('get_settings');
   } catch (error) {
     console.error('Failed to get settings:', error);
-    return { theme: 'dark', rpc_host: 'localhost', rpc_port: 9091, rpc_auth: false, rpc_username: '', rpc_password: '', rpc_https: false, rpc_insecure: false, auto_connect: true };
+    return { rpc_host: 'localhost', rpc_port: 9091, rpc_auth: false, rpc_username: '', rpc_password: '', rpc_https: false, rpc_insecure: false, auto_connect: true };
   }
 }
 
@@ -192,22 +244,9 @@ async function setSettings(settings) {
   }
 }
 
-async function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  const sun = document.querySelector('#theme-btn .icon-sun');
-  const moon = document.querySelector('#theme-btn .icon-moon');
-  if (sun && moon) {
-    sun.style.display = theme === 'dark' ? '' : 'none';
-    moon.style.display = theme === 'light' ? '' : 'none';
-  }
-}
-
-async function toggleTheme() {
-  const settings = await getSettings();
-  const newTheme = settings.theme === 'dark' ? 'light' : 'dark';
-  settings.theme = newTheme;
-  await applyTheme(newTheme);
-  await setSettings(settings);
+async function applySystemTheme() {
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 }
 
 async function connect(silent = false) {
@@ -320,9 +359,9 @@ function toggleAuthFields() {
 
 window.addEventListener('DOMContentLoaded', async () => {
   const settings = await getSettings();
-  await applyTheme(settings.theme);
+  applySystemTheme();
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySystemTheme);
 
-  document.getElementById('theme-btn')?.addEventListener('click', toggleTheme);
   document.getElementById('connect-btn')?.addEventListener('click', () => connect());
   document.getElementById('disconnect-btn')?.addEventListener('click', disconnect);
 
@@ -354,6 +393,25 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('delete-btn')?.addEventListener('click', openDeleteDialog);
 
+  document.getElementById('verify-btn')?.addEventListener('click', () => {
+    runTorrentAction('rpc_torrent_action', { action: 'verify', ids: getSelectedIds() });
+  });
+
+  document.getElementById('alt-speed-btn')?.addEventListener('click', async () => {
+    try {
+      const enabled = await invoke('rpc_toggle_alt_speed');
+      updateAltSpeedState(enabled);
+    } catch (error) {
+      console.error('Failed to toggle speed mode:', error);
+      alert('Failed to toggle speed mode: ' + error);
+    }
+  });
+
+  document.getElementById('filter-select')?.addEventListener('change', (e) => {
+    filterState = e.target.value;
+    renderTorrents(torrentsCache);
+  });
+
   document.getElementById('torrent-list')?.addEventListener('click', (e) => {
     const card = e.target.closest('.torrent-card');
     if (!card) return;
@@ -381,7 +439,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('connection-settings-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const settings = {
-      theme: (await getSettings()).theme,
       rpc_host: document.getElementById('rpc-host').value,
       rpc_port: parseInt(document.getElementById('rpc-port').value) || 9091,
       rpc_auth: document.getElementById('rpc-auth').checked,
@@ -425,6 +482,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   await listen('session-stats-update', (event) => {
     updateTransferStats(event.payload);
+  });
+
+  await listen('alt-speed-update', (event) => {
+    updateAltSpeedState(event.payload);
   });
 
   const cliFile = await invoke('get_cli_file');

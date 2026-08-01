@@ -14,7 +14,6 @@ use transmission_rpc::types::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct Settings {
-    pub theme: String,
     pub rpc_host: String,
     pub rpc_port: u16,
     pub rpc_auth: bool,
@@ -35,7 +34,6 @@ fn default_auto_connect() -> bool {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            theme: "dark".to_string(),
             rpc_host: "localhost".to_string(),
             rpc_port: 9091,
             rpc_auth: false,
@@ -78,6 +76,86 @@ pub(crate) struct SessionStatsInfo {
     pub paused_torrent_count: i64,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub(crate) struct AltSpeedInfo {
+    pub enabled: bool,
+    pub download_limit: i64,
+    pub upload_limit: i64,
+}
+
+struct RawRpc {
+    url: url::Url,
+    auth: Option<BasicAuth>,
+    session_id: std::sync::RwLock<Option<String>>,
+    client: reqwest::Client,
+}
+
+impl RawRpc {
+    async fn call(
+        &self,
+        method: &str,
+        args: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value, String> {
+        let body = serde_json::json!({ "method": method, "arguments": args });
+        for _ in 0..5 {
+            let mut req = self.client.post(self.url.clone());
+            if let Some(auth) = &self.auth {
+                req = req.basic_auth(&auth.user, Some(&auth.password));
+            }
+            if let Some(id) = self.session_id.read().unwrap().as_ref() {
+                req = req.header("X-Transmission-Session-Id", id);
+            }
+            let rsp = req
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| format!("HTTP error: {}", e))?;
+            if rsp.status() == reqwest::StatusCode::CONFLICT {
+                let id = rsp
+                    .headers()
+                    .get("X-Transmission-Session-Id")
+                    .ok_or_else(|| "No session id received".to_string())?
+                    .to_str()
+                    .map_err(|e| e.to_string())?
+                    .to_string();
+                *self.session_id.write().unwrap() = Some(id);
+                continue;
+            }
+            let json: serde_json::Value = rsp
+                .json()
+                .await
+                .map_err(|e| format!("Decode error: {}", e))?;
+            return Ok(json);
+        }
+        Err("Max retries reached".to_string())
+    }
+
+    async fn alt_speed(&self) -> Result<AltSpeedInfo, String> {
+        let json = self.call("session-get", None).await?;
+        let enabled = json["arguments"]["alt-speed-enabled"]
+            .as_bool()
+            .ok_or_else(|| "alt-speed-enabled missing in response".to_string())?;
+        let download_limit =
+            (json["arguments"]["alt-speed-down"].as_f64().unwrap_or(0.0) * 1024.0) as i64;
+        let upload_limit =
+            (json["arguments"]["alt-speed-up"].as_f64().unwrap_or(0.0) * 1024.0) as i64;
+        Ok(AltSpeedInfo {
+            enabled,
+            download_limit,
+            upload_limit,
+        })
+    }
+
+    async fn set_alt_speed_enabled(&self, enabled: bool) -> Result<(), String> {
+        self.call(
+            "session-set",
+            Some(serde_json::json!({ "alt-speed-enabled": enabled })),
+        )
+        .await?;
+        Ok(())
+    }
+}
+
 fn status_to_string(status: &TorrentStatus) -> String {
     match status {
         TorrentStatus::Stopped => "Stopped",
@@ -86,6 +164,7 @@ fn status_to_string(status: &TorrentStatus) -> String {
         TorrentStatus::Downloading => "Downloading",
         TorrentStatus::QueuedToSeed => "Waiting to seed",
         TorrentStatus::Seeding => "Seeding",
+        TorrentStatus::Verifying => "Checking",
         _ => "Unknown",
     }
     .to_string()
@@ -268,6 +347,7 @@ async fn rpc_torrent_action(
     let action = match action.as_str() {
         "start" => TorrentAction::Start,
         "pause" => TorrentAction::Stop,
+        "verify" => TorrentAction::Verify,
         _ => return Err(format!("Unknown action: {}", action)),
     };
     let ids: Vec<Id> = ids.into_iter().map(Id::Id).collect();
@@ -341,6 +421,7 @@ pub(crate) struct ConnectRequest {
 async fn rpc_connect(
     args: ConnectRequest,
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+    raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
 ) -> Result<(), String> {
     let scheme = if args.https { "https" } else { "http" };
     let url_str = format!("{}://{}:{}/transmission/rpc", scheme, args.host, args.port);
@@ -354,28 +435,58 @@ async fn rpc_connect(
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
 
-    let mut client = TransClient::new_with_client(url, http_client);
+    let mut client = TransClient::new_with_client(url.clone(), http_client.clone());
     if args.auth {
         client.set_auth(BasicAuth {
-            user: args.username,
-            password: args.password,
+            user: args.username.clone(),
+            password: args.password.clone(),
         });
     }
     client
         .session_get()
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
-    let mut guard = client_state.lock().await;
-    *guard = Some(client);
+
+    let raw = RawRpc {
+        url,
+        auth: if args.auth {
+            Some(BasicAuth {
+                user: args.username,
+                password: args.password,
+            })
+        } else {
+            None
+        },
+        session_id: std::sync::RwLock::new(None),
+        client: http_client,
+    };
+    *client_state.lock().await = Some(client);
+    *raw_state.lock().await = Some(raw);
     Ok(())
+}
+
+#[tauri::command]
+async fn rpc_toggle_alt_speed(
+    raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
+) -> Result<AltSpeedInfo, String> {
+    let guard = raw_state.lock().await;
+    let raw = guard.as_ref().ok_or("Not connected")?;
+    let info = raw.alt_speed().await?;
+    let new = !info.enabled;
+    raw.set_alt_speed_enabled(new).await?;
+    Ok(AltSpeedInfo {
+        enabled: new,
+        ..info
+    })
 }
 
 #[tauri::command]
 async fn rpc_disconnect(
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+    raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
 ) -> Result<(), String> {
-    let mut guard = client_state.lock().await;
-    *guard = None;
+    *client_state.lock().await = None;
+    *raw_state.lock().await = None;
     Ok(())
 }
 
@@ -417,6 +528,7 @@ pub fn run() {
             set_settings,
             rpc_connect,
             rpc_disconnect,
+            rpc_toggle_alt_speed,
             rpc_add_torrent,
             rpc_get_torrents,
             rpc_torrent_action,
@@ -446,34 +558,46 @@ pub fn run() {
                 settings_path,
             }));
             app.manage(tokio::sync::Mutex::new(None::<TransClient>));
+            app.manage(tokio::sync::Mutex::new(None::<RawRpc>));
 
             let handle = app.handle().clone();
             let fields = torrent_fields();
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(Duration::from_secs(1)).await;
-                    let state = handle.state::<tokio::sync::Mutex<Option<TransClient>>>();
-                    let mut guard = state.lock().await;
-                    if let Some(ref mut client) = *guard {
-                        match client.torrent_get(Some(fields.clone()), None).await {
-                            Ok(response) => {
-                                let torrents = map_torrents(&response.arguments.torrents);
-                                let _ = handle.emit("torrents-update", &torrents);
+                    {
+                        let state = handle.state::<tokio::sync::Mutex<Option<TransClient>>>();
+                        let mut guard = state.lock().await;
+                        if let Some(ref mut client) = *guard {
+                            match client.torrent_get(Some(fields.clone()), None).await {
+                                Ok(response) => {
+                                    let torrents = map_torrents(&response.arguments.torrents);
+                                    let _ = handle.emit("torrents-update", &torrents);
+                                }
+                                Err(e) => {
+                                    log::error!("RPC poll error: {}", e);
+                                }
                             }
-                            Err(e) => {
-                                log::error!("RPC poll error: {}", e);
+                            if let Ok(response) = client.session_stats().await {
+                                let stats = response.arguments;
+                                let info = SessionStatsInfo {
+                                    download_speed: stats.download_speed,
+                                    upload_speed: stats.upload_speed,
+                                    torrent_count: i64::from(stats.torrent_count),
+                                    active_torrent_count: i64::from(stats.active_torrent_count),
+                                    paused_torrent_count: i64::from(stats.paused_torrent_count),
+                                };
+                                let _ = handle.emit("session-stats-update", &info);
                             }
                         }
-                        if let Ok(response) = client.session_stats().await {
-                            let stats = response.arguments;
-                            let info = SessionStatsInfo {
-                                download_speed: stats.download_speed,
-                                upload_speed: stats.upload_speed,
-                                torrent_count: i64::from(stats.torrent_count),
-                                active_torrent_count: i64::from(stats.active_torrent_count),
-                                paused_torrent_count: i64::from(stats.paused_torrent_count),
-                            };
-                            let _ = handle.emit("session-stats-update", &info);
+                    }
+                    {
+                        let raw_state = handle.state::<tokio::sync::Mutex<Option<RawRpc>>>();
+                        let raw_guard = raw_state.lock().await;
+                        if let Some(raw) = raw_guard.as_ref()
+                            && let Ok(info) = raw.alt_speed().await
+                        {
+                            let _ = handle.emit("alt-speed-update", &info);
                         }
                     }
                 }

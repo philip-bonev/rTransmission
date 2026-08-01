@@ -121,6 +121,12 @@ body.drag-over::after {
     cursor: not-allowed;
 }
 
+.toolbar-btn.active {
+    opacity: 1;
+    color: var(--accent-color);
+    background-color: var(--selected-bg);
+}
+
 .toolbar-btn:focus-visible,
 .dialog-close-btn:focus-visible,
 .dialog-btn-primary:focus-visible,
@@ -216,6 +222,26 @@ body.drag-over::after {
 
 .torrent-stat-label {
     color: var(--text-secondary);
+}
+
+#filter-select {
+    background-color: var(--bg-toolbar);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+}
+
+#filter-select:focus {
+    border-color: var(--accent);
+}
+
+#connection-settings-btn {
+    margin-left: auto;
 }
 
 #torrent-list {
