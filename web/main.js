@@ -1,14 +1,24 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
+const { open } = window.__TAURI__.dialog;
 
-let currentFilePath = null;
 let connected = false;
+const selectedIds = new Set();
 
-function formatBytes(bytes) {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+function formatPercent(percent) {
+  return (percent * 100).toFixed(1) + '%';
+}
+
+function formatTimeLeft(seconds) {
+  if (seconds == null || seconds < 0) return '—';
+  if (seconds === 0) return 'Done';
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds % 60}s`;
 }
 
 function formatSpeed(bytesPerSec) {
@@ -16,11 +26,6 @@ function formatSpeed(bytesPerSec) {
   const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
   const i = Math.floor(Math.log(bytesPerSec) / Math.log(1024));
   return (bytesPerSec / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
-}
-
-function formatRatio(ratio) {
-  if (ratio === 0) return '0.00';
-  return ratio.toFixed(2);
 }
 
 function getStatusClass(status) {
@@ -42,8 +47,9 @@ function createTorrentCard(torrent) {
   card.className = 'torrent-card';
   card.dataset.id = torrent.id;
 
-  const statusClass = getStatusClass(torrent.status);
   const isError = torrent.error && torrent.error_string;
+  const statusClass = isError ? 'status-error' : getStatusClass(torrent.status);
+  const timeLeft = torrent.status === 'Stopped' ? '—' : formatTimeLeft(torrent.time_left);
 
   card.innerHTML = `
     <div class="torrent-card-row">
@@ -52,11 +58,12 @@ function createTorrentCard(torrent) {
     </div>
     <div class="torrent-card-row">
       <div class="torrent-stats">
-        <span class="torrent-stat"><span class="torrent-stat-value">↑ ${formatSpeed(torrent.rate_upload)}</span></span>
-        <span class="torrent-stat"><span class="torrent-stat-value">↓ ${formatSpeed(torrent.rate_download)}</span></span>
-        <span class="torrent-stat"><span class="torrent-stat-label">Ratio</span> <span class="torrent-stat-value">${formatRatio(torrent.upload_ratio)}</span></span>
-        <span class="torrent-stat"><span class="torrent-stat-label">DL</span> <span class="torrent-stat-value">${formatBytes(torrent.downloaded_ever)}</span></span>
-        <span class="torrent-stat"><span class="torrent-stat-label">Size</span> <span class="torrent-stat-value">${formatBytes(torrent.total_size)}</span></span>
+        <span class="torrent-stat"><span class="torrent-stat-value">${formatPercent(torrent.percent_done)}</span></span>
+        <span class="torrent-stat"><span class="torrent-stat-label">Time left</span> <span class="torrent-stat-value">${timeLeft}</span></span>
+        <span class="torrent-stat"><span class="torrent-stat-label">↓</span> <span class="torrent-stat-value">${formatSpeed(torrent.rate_download)}</span></span>
+        <span class="torrent-stat"><span class="torrent-stat-label">↑</span> <span class="torrent-stat-value">${formatSpeed(torrent.rate_upload)}</span></span>
+        <span class="torrent-stat"><span class="torrent-stat-label">Se</span> <span class="torrent-stat-value">${torrent.seeders}</span></span>
+        <span class="torrent-stat"><span class="torrent-stat-label">Le</span> <span class="torrent-stat-value">${torrent.leechers}</span></span>
       </div>
     </div>
   `;
@@ -81,6 +88,8 @@ function renderTorrents(torrents) {
   if (!torrents || torrents.length === 0) {
     list.innerHTML = '';
     empty.style.display = '';
+    selectedIds.clear();
+    updateActionButtons();
     return;
   }
 
@@ -99,6 +108,12 @@ function renderTorrents(torrents) {
     }
   }
 
+  for (const id of [...selectedIds]) {
+    if (!newIds.has(id)) {
+      selectedIds.delete(id);
+    }
+  }
+
   for (const t of torrents) {
     const id = String(t.id);
     const existing = list.querySelector(`[data-id="${id}"]`);
@@ -108,12 +123,56 @@ function renderTorrents(torrents) {
       list.appendChild(createTorrentCard(t));
     }
   }
+
+  applySelection();
 }
 
 function updateConnectionState(isConnected) {
   connected = isConnected;
+  const conn = document.getElementById('status-connection');
+  if (conn) {
+    conn.textContent = isConnected ? '● Connected' : '● Disconnected';
+    conn.classList.toggle('status-connected', isConnected);
+    conn.classList.toggle('status-disconnected', !isConnected);
+  }
+  const transfer = document.getElementById('status-transfer');
+  if (transfer) {
+    transfer.classList.toggle('hidden', !isConnected);
+    if (!isConnected) transfer.textContent = '';
+  }
   document.getElementById('connect-btn').disabled = isConnected;
   document.getElementById('disconnect-btn').disabled = !isConnected;
+  for (const id of ['add-url-btn', 'add-file-btn', 'add-magnet-btn']) {
+    document.getElementById(id).disabled = !isConnected;
+  }
+  updateActionButtons();
+}
+
+function updateTransferStats(stats) {
+  const el = document.getElementById('status-transfer');
+  if (!el || !stats) return;
+  const down = stats.download_speed || 0;
+  const up = stats.upload_speed || 0;
+  el.textContent = `↓ ${formatSpeed(down)} ↑ ${formatSpeed(up)} · Total ${formatSpeed(down + up)}`;
+}
+
+function getSelectedIds() {
+  return Array.from(selectedIds).map(Number);
+}
+
+function applySelection() {
+  const list = document.getElementById('torrent-list');
+  for (const child of list.children) {
+    child.classList.toggle('selected', selectedIds.has(child.dataset.id));
+  }
+  updateActionButtons();
+}
+
+function updateActionButtons() {
+  const hasSelection = connected && selectedIds.size > 0;
+  for (const id of ['start-btn', 'pause-btn', 'delete-btn']) {
+    document.getElementById(id).disabled = !hasSelection;
+  }
 }
 
 async function getSettings() {
@@ -121,7 +180,7 @@ async function getSettings() {
     return await invoke('get_settings');
   } catch (error) {
     console.error('Failed to get settings:', error);
-    return { theme: 'dark', rpc_host: 'localhost', rpc_port: 9091, rpc_auth: false, rpc_username: '', rpc_password: '' };
+    return { theme: 'dark', rpc_host: 'localhost', rpc_port: 9091, rpc_auth: false, rpc_username: '', rpc_password: '', rpc_https: false, rpc_insecure: false, auto_connect: true };
   }
 }
 
@@ -151,20 +210,26 @@ async function toggleTheme() {
   await setSettings(settings);
 }
 
-async function connect() {
+async function connect(silent = false) {
   const settings = await getSettings();
   try {
     await invoke('rpc_connect', {
-      host: settings.rpc_host,
-      port: settings.rpc_port,
-      auth: settings.rpc_auth,
-      username: settings.rpc_username,
-      password: settings.rpc_password,
+      args: {
+        host: settings.rpc_host,
+        port: settings.rpc_port,
+        auth: settings.rpc_auth,
+        username: settings.rpc_username,
+        password: settings.rpc_password,
+        https: settings.rpc_https,
+        insecure: settings.rpc_insecure,
+      },
     });
     updateConnectionState(true);
   } catch (error) {
     console.error('Connection failed:', error);
-    alert('Connection failed: ' + error);
+    if (!silent) {
+      alert('Connection failed: ' + error);
+    }
   }
 }
 
@@ -178,8 +243,58 @@ async function disconnect() {
   }
 }
 
-function openSettings() {
-  const overlay = document.getElementById('settings-overlay');
+async function addTorrent(input) {
+  if (!connected) {
+    alert('Connect to a Transmission daemon first');
+    return;
+  }
+  try {
+    await invoke('rpc_add_torrent', { input });
+  } catch (error) {
+    console.error('Failed to add torrent:', error);
+    alert('Failed to add torrent: ' + error);
+  }
+}
+
+function openAddDialog(title, label, placeholder) {
+  document.getElementById('add-dialog-title').textContent = title;
+  document.getElementById('add-input-label').textContent = label;
+  const input = document.getElementById('add-input');
+  input.placeholder = placeholder;
+  input.value = '';
+  document.getElementById('add-overlay').classList.remove('hidden');
+  input.focus();
+}
+
+function closeAddDialog() {
+  document.getElementById('add-overlay').classList.add('hidden');
+}
+
+function openDeleteDialog() {
+  if (selectedIds.size === 0) return;
+  const count = selectedIds.size;
+  document.getElementById('delete-count').textContent =
+    count === 1 ? 'Delete the selected torrent?' : `Delete the ${count} selected torrents?`;
+  document.getElementById('delete-data-checkbox').checked = false;
+  document.getElementById('delete-overlay').classList.remove('hidden');
+}
+
+function closeDeleteDialog() {
+  document.getElementById('delete-overlay').classList.add('hidden');
+}
+
+async function runTorrentAction(command, args) {
+  if (!connected || selectedIds.size === 0) return;
+  try {
+    await invoke(command, args);
+  } catch (error) {
+    console.error('Action failed:', error);
+    alert('Action failed: ' + error);
+  }
+}
+
+function openConnectionSettings() {
+  const overlay = document.getElementById('connection-settings-overlay');
   overlay.classList.remove('hidden');
   getSettings().then(settings => {
     document.getElementById('rpc-host').value = settings.rpc_host;
@@ -187,12 +302,15 @@ function openSettings() {
     document.getElementById('rpc-auth').checked = settings.rpc_auth;
     document.getElementById('rpc-username').value = settings.rpc_username;
     document.getElementById('rpc-password').value = settings.rpc_password;
+    document.getElementById('rpc-https').checked = settings.rpc_https;
+    document.getElementById('rpc-insecure').checked = settings.rpc_insecure;
+    document.getElementById('rpc-auto-connect').checked = settings.auto_connect;
     toggleAuthFields();
   });
 }
 
-function closeSettings() {
-  document.getElementById('settings-overlay').classList.add('hidden');
+function closeConnectionSettings() {
+  document.getElementById('connection-settings-overlay').classList.add('hidden');
 }
 
 function toggleAuthFields() {
@@ -205,17 +323,62 @@ window.addEventListener('DOMContentLoaded', async () => {
   await applyTheme(settings.theme);
 
   document.getElementById('theme-btn')?.addEventListener('click', toggleTheme);
-  document.getElementById('connect-btn')?.addEventListener('click', connect);
+  document.getElementById('connect-btn')?.addEventListener('click', () => connect());
   document.getElementById('disconnect-btn')?.addEventListener('click', disconnect);
 
-  document.getElementById('settings-btn')?.addEventListener('click', openSettings);
-  document.getElementById('settings-close-btn')?.addEventListener('click', closeSettings);
-  document.getElementById('settings-overlay')?.addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeSettings();
+  document.getElementById('add-url-btn')?.addEventListener('click', () => {
+    openAddDialog('Add Torrent URL', 'URL', 'https://example.com/file.torrent');
+  });
+  document.getElementById('add-magnet-btn')?.addEventListener('click', () => {
+    openAddDialog('Add Magnet Link', 'Magnet link', 'magnet:?xt=urn:btih:...');
+  });
+  document.getElementById('add-file-btn')?.addEventListener('click', async () => {
+    try {
+      const path = await open({
+        multiple: false,
+        filters: [{ name: 'Torrent files', extensions: ['torrent', 'magnet'] }],
+      });
+      if (path) {
+        await addTorrent(path);
+      }
+    } catch (error) {
+      console.error('Failed to pick file:', error);
+    }
+  });
+
+  document.getElementById('start-btn')?.addEventListener('click', () => {
+    runTorrentAction('rpc_torrent_action', { action: 'start', ids: getSelectedIds() });
+  });
+  document.getElementById('pause-btn')?.addEventListener('click', () => {
+    runTorrentAction('rpc_torrent_action', { action: 'pause', ids: getSelectedIds() });
+  });
+  document.getElementById('delete-btn')?.addEventListener('click', openDeleteDialog);
+
+  document.getElementById('torrent-list')?.addEventListener('click', (e) => {
+    const card = e.target.closest('.torrent-card');
+    if (!card) return;
+    const id = card.dataset.id;
+    if (e.ctrlKey || e.metaKey) {
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+    } else {
+      selectedIds.clear();
+      selectedIds.add(id);
+    }
+    applySelection();
+  });
+
+  document.getElementById('connection-settings-btn')?.addEventListener('click', openConnectionSettings);
+  document.getElementById('connection-settings-close-btn')?.addEventListener('click', closeConnectionSettings);
+  document.getElementById('connection-settings-overlay')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeConnectionSettings();
   });
   document.getElementById('rpc-auth')?.addEventListener('change', toggleAuthFields);
 
-  document.getElementById('settings-form')?.addEventListener('submit', async (e) => {
+  document.getElementById('connection-settings-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const settings = {
       theme: (await getSettings()).theme,
@@ -224,19 +387,53 @@ window.addEventListener('DOMContentLoaded', async () => {
       rpc_auth: document.getElementById('rpc-auth').checked,
       rpc_username: document.getElementById('rpc-username').value,
       rpc_password: document.getElementById('rpc-password').value,
+      rpc_https: document.getElementById('rpc-https').checked,
+      rpc_insecure: document.getElementById('rpc-insecure').checked,
+      auto_connect: document.getElementById('rpc-auto-connect').checked,
     };
     await setSettings(settings);
-    closeSettings();
+    closeConnectionSettings();
   });
 
-  const cliFile = await invoke('get_cli_file');
-  if (cliFile) {
-    await openFileByPath(cliFile);
-  }
+  document.getElementById('add-close-btn')?.addEventListener('click', closeAddDialog);
+  document.getElementById('add-overlay')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeAddDialog();
+  });
+  document.getElementById('add-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const value = document.getElementById('add-input').value.trim();
+    if (!value) return;
+    closeAddDialog();
+    await addTorrent(value);
+  });
+
+  document.getElementById('delete-close-btn')?.addEventListener('click', closeDeleteDialog);
+  document.getElementById('delete-cancel-btn')?.addEventListener('click', closeDeleteDialog);
+  document.getElementById('delete-overlay')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeDeleteDialog();
+  });
+  document.getElementById('delete-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const deleteData = document.getElementById('delete-data-checkbox').checked;
+    closeDeleteDialog();
+    await runTorrentAction('rpc_torrent_remove', { ids: getSelectedIds(), deleteData });
+  });
 
   await listen('torrents-update', (event) => {
     renderTorrents(event.payload);
   });
+
+  await listen('session-stats-update', (event) => {
+    updateTransferStats(event.payload);
+  });
+
+  const cliFile = await invoke('get_cli_file');
+  if (settings.auto_connect) {
+    await connect(true);
+  }
+  if (cliFile) {
+    await addTorrent(cliFile);
+  }
 
   const body = document.body;
   let dragCounter = 0;
@@ -260,10 +457,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  body.addEventListener('drop', (e) => {
+  body.addEventListener('drop', async (e) => {
     e.preventDefault();
     dragCounter = 0;
     body.classList.remove('drag-over');
+    if (e.dataTransfer && e.dataTransfer.files.length === 0) {
+      const text = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+      if (text) {
+        const trimmed = text.trim().split(/\r?\n/)[0].trim();
+        if (trimmed.startsWith('magnet:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+          await addTorrent(trimmed);
+        }
+      }
+    }
   });
 
   await listen('tauri://drag-drop', async (event) => {
@@ -272,7 +478,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const payload = event.payload;
     if (payload && payload.paths && payload.paths.length > 0) {
       const filePath = payload.paths[0];
-      await openFileByPath(filePath);
+      await addTorrent(filePath);
     }
   });
 
@@ -280,7 +486,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (event.payload) {
       const filePath = typeof event.payload === 'string' ? event.payload : event.payload.path;
       if (filePath) {
-        await openFileByPath(filePath);
+        await addTorrent(filePath);
       }
     }
   });

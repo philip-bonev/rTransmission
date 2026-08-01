@@ -32,21 +32,63 @@
     <button id="connect-btn" class="toolbar-btn" title="Connect">
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        <path d="M4 20 L11 13 L14 16" />
+        <path d="M20 4 L13 11 L16 14" />
       </svg>
     </button>
     <button id="disconnect-btn" class="toolbar-btn" title="Disconnect" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
-        <path d="M10 13a5 5 0 0 0 7.54.54l1.41-1.42" />
-        <path d="M11 4.71a5 5 0 0 1 6.46 1.12l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-1.41 1.42" />
-        <path d="M13 19.29a5 5 0 0 1-6.46-1.12l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        <path d="M4 20 L11 13 L14 16" />
+        <path d="M20 4 L13 11 L16 14" />
         <line x1="2" y1="2" x2="22" y2="22" />
       </svg>
     </button>
-    <button id="settings-btn" class="toolbar-btn" title="Settings">
+    <div class="toolbar-separator"></div>
+    <button id="add-url-btn" class="toolbar-btn" title="Add torrent by URL" disabled>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </svg>
+    </button>
+    <button id="add-file-btn" class="toolbar-btn" title="Add torrent file" disabled>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+      </svg>
+    </button>
+    <button id="add-magnet-btn" class="toolbar-btn" title="Add magnet link" disabled>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 8H6a5 5 0 0 0 0 10h11" />
+        <path d="M20 6v4" />
+        <path d="M20 16v4" />
+      </svg>
+    </button>
+    <div class="toolbar-separator"></div>
+    <button id="start-btn" class="toolbar-btn" title="Start selected torrents" disabled>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" stroke="none">
+        <path d="M8 5v14l11-7z" />
+      </svg>
+    </button>
+    <button id="pause-btn" class="toolbar-btn" title="Pause selected torrents" disabled>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" stroke="none">
+        <rect x="6" y="4" width="4" height="16" rx="1" />
+        <rect x="14" y="4" width="4" height="16" rx="1" />
+      </svg>
+    </button>
+    <button id="delete-btn" class="toolbar-btn" title="Delete selected torrents" disabled>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </svg>
+    </button>
+    <div class="toolbar-separator"></div>
+    <button id="connection-settings-btn" class="toolbar-btn" title="Connection Settings">
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path
@@ -61,14 +103,18 @@
       <p>Connect to a Transmission daemon to get started</p>
     </div>
   </div>
+  <div id="status-bar">
+    <span id="status-connection">● Disconnected</span>
+    <span id="status-transfer" class="hidden"></span>
+  </div>
 
-  <div id="settings-overlay" class="overlay hidden">
-    <div id="settings-dialog" class="dialog">
+  <div id="connection-settings-overlay" class="overlay hidden">
+    <div id="connection-settings-dialog" class="dialog">
       <div class="dialog-header">
         <h2>Connection Settings</h2>
-        <button id="settings-close-btn" class="dialog-close-btn">&times;</button>
+        <button id="connection-settings-close-btn" class="dialog-close-btn">&times;</button>
       </div>
-      <form id="settings-form">
+      <form id="connection-settings-form">
         <div class="form-group">
           <label for="rpc-host">Host</label>
           <input type="text" id="rpc-host" placeholder="localhost" />
@@ -93,8 +139,68 @@
             <input type="password" id="rpc-password" placeholder="password" />
           </div>
         </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="rpc-https" />
+            Use HTTPS (TLS)
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="rpc-insecure" />
+            Ignore invalid certificates
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="rpc-auto-connect" />
+            Connect automatically on startup
+          </label>
+        </div>
         <div class="dialog-actions">
           <button type="submit" class="dialog-btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="add-overlay" class="overlay hidden">
+    <div id="add-dialog" class="dialog">
+      <div class="dialog-header">
+        <h2 id="add-dialog-title">Add Torrent</h2>
+        <button id="add-close-btn" class="dialog-close-btn">&times;</button>
+      </div>
+      <form id="add-form">
+        <div class="form-group">
+          <label id="add-input-label" for="add-input">URL</label>
+          <input type="text" id="add-input" placeholder="https://example.com/file.torrent" spellcheck="false" />
+        </div>
+        <div class="dialog-actions">
+          <button type="submit" class="dialog-btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="delete-overlay" class="overlay hidden">
+    <div id="delete-dialog" class="dialog">
+      <div class="dialog-header">
+        <h2>Delete Torrent</h2>
+        <button id="delete-close-btn" class="dialog-close-btn">&times;</button>
+      </div>
+      <form id="delete-form">
+        <div class="form-group">
+          <p id="delete-count" class="dialog-text"></p>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="delete-data-checkbox" />
+            Also delete downloaded data
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" id="delete-cancel-btn" class="dialog-btn-secondary">Cancel</button>
+          <button type="submit" class="dialog-btn-primary">Delete</button>
         </div>
       </form>
     </div>

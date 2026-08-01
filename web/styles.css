@@ -16,6 +16,7 @@
     --accent-hover: #3a8eef;
     --disabled-color: #555555;
     --drag-over-bg: #2a3a4a;
+    --selected-bg: #1e3a5f;
 }
 
 [data-theme="light"] {
@@ -29,6 +30,7 @@
     --accent-hover: #3a8eef;
     --disabled-color: #aaaaaa;
     --drag-over-bg: #d0e4f5;
+    --selected-bg: #cfe4f7;
 }
 
 html,
@@ -97,6 +99,13 @@ body.drag-over::after {
     pointer-events: none;
 }
 
+.toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background-color: var(--border-color);
+    margin: 0 4px;
+}
+
 .toolbar-btn:hover:not(:disabled) {
     opacity: 1;
     background-color: var(--border-color);
@@ -110,6 +119,14 @@ body.drag-over::after {
 .toolbar-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
+}
+
+.toolbar-btn:focus-visible,
+.dialog-close-btn:focus-visible,
+.dialog-btn-primary:focus-visible,
+.dialog-btn-secondary:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
 }
 
 #torrent-viewer {
@@ -128,11 +145,17 @@ body.drag-over::after {
     border-radius: 10px;
     padding: 12px 16px;
     margin-bottom: 6px;
-    transition: all 0.15s ease;
+    transition: border-color 0.15s ease;
+    cursor: pointer;
 }
 
 .torrent-card:hover {
     border-color: var(--accent-color);
+}
+
+.torrent-card.selected {
+    border-color: var(--accent-color);
+    background-color: var(--selected-bg);
 }
 
 .torrent-card-row {
@@ -169,10 +192,12 @@ body.drag-over::after {
 .status-checking { color: #FF9800; }
 .status-waiting { color: var(--text-secondary); }
 .status-stalled { color: #FF9800; }
+.status-error { color: #f44336; }
 
 .torrent-stats {
     display: flex;
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 4px 16px;
     font-size: 11px;
     color: var(--text-secondary);
 }
@@ -209,6 +234,29 @@ body.drag-over::after {
     padding: 40px;
 }
 
+#status-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 26px;
+    padding: 0 12px;
+    background-color: var(--bg-toolbar);
+    border-top: 1px solid var(--border-color);
+    font-size: 11px;
+    color: var(--text-secondary);
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+#status-connection.status-connected {
+    color: #4CAF50;
+}
+
+#status-connection.status-disconnected {
+    color: var(--text-secondary);
+}
+
 .overlay {
     position: fixed;
     inset: 0;
@@ -219,8 +267,8 @@ body.drag-over::after {
     z-index: 10000;
 }
 
-.overlay.hidden {
-    display: none;
+.hidden {
+    display: none !important;
 }
 
 .dialog {
@@ -260,7 +308,7 @@ body.drag-over::after {
     color: var(--text-primary);
 }
 
-#settings-form {
+#connection-settings-form {
     padding: 16px 20px 20px;
 }
 
@@ -274,6 +322,12 @@ body.drag-over::after {
     font-weight: 500;
     color: var(--text-secondary);
     margin-bottom: 4px;
+}
+
+.dialog-text {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.4;
 }
 
 .form-group input[type="text"],
@@ -320,7 +374,24 @@ body.drag-over::after {
 .dialog-actions {
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
     margin-top: 4px;
+}
+
+.dialog-btn-secondary {
+    padding: 8px 24px;
+    background-color: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.dialog-btn-secondary:hover {
+    background-color: var(--border-color);
 }
 
 .dialog-btn-primary {

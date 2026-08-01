@@ -30,6 +30,24 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "torrent"
+        ],
+        "name": "BitTorrent Torrent File",
+        "description": "BitTorrent torrent file",
+        "mimeType": "application/x-bittorrent"
+      },
+      {
+        "ext": [
+          "magnet"
+        ],
+        "name": "Magnet Link File",
+        "description": "Magnet link file",
+        "mimeType": "text/plain"
+      }
     ]
   }
 }
