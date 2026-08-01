@@ -10,6 +10,7 @@
 - **Backend (Rust):** Located in `/src`. Uses `transmission-rpc` crate to communicate with the Transmission daemon.
 - **Frontend (Web):** Located in `/web` (HTML/JS UI). Communicates with Rust via Tauri invokes.
 - **Configuration:** `Cargo.toml` (Rust dependencies), `tauri.conf.json` (Tauri core settings).
+- **Platform:** This app is multiplatform Windows, Linux and MacOS.
 
 ## 3. Core Features & Logic
 - **Transmission RPC:** All torrent actions (add, pause, remove, list) must go through the `transmission-rpc` client implemented in the Rust backend.
@@ -27,6 +28,7 @@
 - **Tauri Commands:** Always write Rust commands with proper error handling. Return `Result<T, E>` where `E` is a string or a serializable error type so the frontend can catch it.
 - **Async Rust:** Use async tasks where appropriate to ensure the Tauri main/UI thread never freezes during RPC calls.
 - **State Management:** Manage the Transmission RPC client instance globally using Tauri's `tauri::State`.
+- **Style:** Use space not tabs. 4 spaces eqauls tab.
 
 ## 6. Constraints & Restrictions
 - **Dependencies:** DO NOT add new Rust crates or JS packages unless explicitly requested.
