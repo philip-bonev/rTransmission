@@ -153,6 +153,8 @@ body.drag-over::after {
     margin-bottom: 6px;
     transition: border-color 0.15s ease;
     cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .torrent-card:hover {
@@ -224,7 +226,8 @@ body.drag-over::after {
     color: var(--text-secondary);
 }
 
-#filter-select {
+#filter-select,
+#sort-select {
     background-color: var(--bg-toolbar);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
@@ -236,8 +239,25 @@ body.drag-over::after {
     -webkit-app-region: no-drag;
 }
 
-#filter-select:focus {
+#filter-select:focus,
+#sort-select:focus {
     border-color: var(--accent);
+}
+
+.sort-asc-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+    -webkit-app-region: no-drag;
+}
+
+.sort-asc-label input {
+    accent-color: var(--accent);
+    cursor: pointer;
 }
 
 #connection-settings-btn {

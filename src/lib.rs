@@ -63,6 +63,9 @@ pub(crate) struct TorrentInfo {
     pub rate_upload: i64,
     pub seeders: i64,
     pub leechers: i64,
+    pub queue_position: i64,
+    pub added_date: i64,
+    pub total_size: i64,
     pub error: bool,
     pub error_string: String,
 }
@@ -181,6 +184,9 @@ fn torrent_fields() -> Vec<TorrentGetField> {
         TorrentGetField::RateUpload,
         TorrentGetField::PeersSendingToUs,
         TorrentGetField::PeersGettingFromUs,
+        TorrentGetField::QueuePosition,
+        TorrentGetField::AddedDate,
+        TorrentGetField::TotalSize,
         TorrentGetField::Error,
         TorrentGetField::ErrorString,
     ]
@@ -199,6 +205,9 @@ fn map_torrents(torrents: &[Torrent]) -> Vec<TorrentInfo> {
             rate_upload: t.rate_upload.unwrap_or(0),
             seeders: t.peers_sending_to_us.unwrap_or(0),
             leechers: t.peers_getting_from_us.unwrap_or(0),
+            queue_position: t.queue_position.unwrap_or(0) as i64,
+            added_date: t.added_date.map(|d| d.timestamp()).unwrap_or(0),
+            total_size: t.total_size.unwrap_or(0),
             error: t.error_string.is_some() && !t.error_string.as_ref().unwrap().is_empty(),
             error_string: t.error_string.clone().unwrap_or_default(),
         })

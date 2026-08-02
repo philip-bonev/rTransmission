@@ -6,6 +6,9 @@ let connected = false;
 const selectedIds = new Set();
 let filterState = 'all';
 let torrentsCache = [];
+let sortState = 'queue';
+let sortAscending = true;
+let lastSelectedId = null;
 
 function formatPercent(percent) {
   return (percent * 100).toFixed(1) + '%';
@@ -51,7 +54,22 @@ function createTorrentCard(torrent) {
 
   const isError = torrent.error && torrent.error_string;
   const statusClass = isError ? 'status-error' : getStatusClass(torrent.status);
-  const timeLeft = torrent.status === 'Stopped' ? '—' : formatTimeLeft(torrent.time_left);
+  const isStopped = torrent.status === 'Stopped';
+  const timeLeft = isStopped ? '—' : formatTimeLeft(torrent.time_left);
+
+  const stats = [
+    `<span class="torrent-stat"><span class="torrent-stat-value">${formatPercent(torrent.percent_done)}</span></span>`,
+    `<span class="torrent-stat"><span class="torrent-stat-label">Queue</span> <span class="torrent-stat-value">${torrent.queue_position}</span></span>`,
+  ];
+  if (!isStopped) {
+    stats.push(
+      `<span class="torrent-stat"><span class="torrent-stat-label">Time left</span> <span class="torrent-stat-value">${timeLeft}</span></span>`,
+      `<span class="torrent-stat"><span class="torrent-stat-label">↓</span> <span class="torrent-stat-value">${formatSpeed(torrent.rate_download)}</span></span>`,
+      `<span class="torrent-stat"><span class="torrent-stat-label">↑</span> <span class="torrent-stat-value">${formatSpeed(torrent.rate_upload)}</span></span>`,
+      `<span class="torrent-stat"><span class="torrent-stat-label">Se</span> <span class="torrent-stat-value">${torrent.seeders}</span></span>`,
+      `<span class="torrent-stat"><span class="torrent-stat-label">Le</span> <span class="torrent-stat-value">${torrent.leechers}</span></span>`,
+    );
+  }
 
   card.innerHTML = `
     <div class="torrent-card-row">
@@ -60,12 +78,7 @@ function createTorrentCard(torrent) {
     </div>
     <div class="torrent-card-row">
       <div class="torrent-stats">
-        <span class="torrent-stat"><span class="torrent-stat-value">${formatPercent(torrent.percent_done)}</span></span>
-        <span class="torrent-stat"><span class="torrent-stat-label">Time left</span> <span class="torrent-stat-value">${timeLeft}</span></span>
-        <span class="torrent-stat"><span class="torrent-stat-label">↓</span> <span class="torrent-stat-value">${formatSpeed(torrent.rate_download)}</span></span>
-        <span class="torrent-stat"><span class="torrent-stat-label">↑</span> <span class="torrent-stat-value">${formatSpeed(torrent.rate_upload)}</span></span>
-        <span class="torrent-stat"><span class="torrent-stat-label">Se</span> <span class="torrent-stat-value">${torrent.seeders}</span></span>
-        <span class="torrent-stat"><span class="torrent-stat-label">Le</span> <span class="torrent-stat-value">${torrent.leechers}</span></span>
+        ${stats.join('')}
       </div>
     </div>
   `;
@@ -100,12 +113,36 @@ function matchesFilter(torrent) {
   }
 }
 
+function compareTorrents(a, b) {
+  let cmp = 0;
+  switch (sortState) {
+    case 'date':
+      cmp = a.added_date - b.added_date;
+      break;
+    case 'size':
+      cmp = a.total_size - b.total_size;
+      break;
+    case 'name':
+      cmp = a.name.localeCompare(b.name);
+      break;
+    case 'seeders':
+      cmp = a.seeders - b.seeders;
+      break;
+    case 'leechers':
+      cmp = a.leechers - b.leechers;
+      break;
+    default:
+      cmp = a.queue_position - b.queue_position;
+  }
+  return sortAscending ? cmp : -cmp;
+}
+
 function renderTorrents(torrents) {
   torrentsCache = torrents || [];
   const list = document.getElementById('torrent-list');
   const empty = document.getElementById('empty-state');
 
-  const filtered = torrentsCache.filter(matchesFilter);
+  const filtered = torrentsCache.filter(matchesFilter).sort(compareTorrents);
 
   if (torrentsCache.length === 0) {
     list.innerHTML = '';
@@ -127,33 +164,16 @@ function renderTorrents(torrents) {
 
   empty.style.display = 'none';
 
-  const existingIds = new Set();
-  for (const child of list.children) {
-    existingIds.add(child.dataset.id);
-  }
-
   const newIds = new Set(filtered.map(t => String(t.id)));
-
-  for (const child of list.children) {
-    if (!newIds.has(child.dataset.id)) {
-      child.remove();
-    }
-  }
-
   for (const id of [...selectedIds]) {
     if (!newIds.has(id)) {
       selectedIds.delete(id);
     }
   }
 
+  list.innerHTML = '';
   for (const t of filtered) {
-    const id = String(t.id);
-    const existing = list.querySelector(`[data-id="${id}"]`);
-    if (existing) {
-      existing.replaceWith(createTorrentCard(t));
-    } else {
-      list.appendChild(createTorrentCard(t));
-    }
+    list.appendChild(createTorrentCard(t));
   }
 
   applySelection();
@@ -412,11 +432,39 @@ window.addEventListener('DOMContentLoaded', async () => {
     renderTorrents(torrentsCache);
   });
 
+  document.getElementById('sort-select')?.addEventListener('change', (e) => {
+    sortState = e.target.value;
+    renderTorrents(torrentsCache);
+  });
+
+  document.getElementById('sort-asc')?.addEventListener('change', (e) => {
+    sortAscending = e.target.checked;
+    const label = document.querySelector('#sort-asc-label');
+    if (label) label.lastChild.textContent = sortAscending ? ' Asc' : ' Desc';
+    renderTorrents(torrentsCache);
+  });
+
+  document.getElementById('torrent-list')?.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+  });
+
   document.getElementById('torrent-list')?.addEventListener('click', (e) => {
     const card = e.target.closest('.torrent-card');
     if (!card) return;
     const id = card.dataset.id;
-    if (e.ctrlKey || e.metaKey) {
+    const visible = Array.from(document.getElementById('torrent-list').children).map(c => c.dataset.id);
+    const index = visible.indexOf(id);
+
+    if (e.shiftKey) {
+      const anchor = lastSelectedId ? visible.indexOf(lastSelectedId) : -1;
+      const from = anchor >= 0 ? anchor : index;
+      const lo = Math.min(from, index);
+      const hi = Math.max(from, index);
+      selectedIds.clear();
+      for (let i = lo; i <= hi; i++) {
+        selectedIds.add(visible[i]);
+      }
+    } else if (e.ctrlKey || e.metaKey) {
       if (selectedIds.has(id)) {
         selectedIds.delete(id);
       } else {
@@ -425,6 +473,22 @@ window.addEventListener('DOMContentLoaded', async () => {
     } else {
       selectedIds.clear();
       selectedIds.add(id);
+    }
+    lastSelectedId = id;
+    applySelection();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (!(e.metaKey || e.ctrlKey) || (e.key !== 'a' && e.key !== 'A')) return;
+    const target = e.target;
+    const isTyping = target &&
+      (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' || target.isContentEditable);
+    if (isTyping) return;
+    e.preventDefault();
+    selectedIds.clear();
+    for (const t of torrentsCache.filter(matchesFilter)) {
+      selectedIds.add(String(t.id));
     }
     applySelection();
   });
