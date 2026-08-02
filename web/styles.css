@@ -260,7 +260,7 @@ body.drag-over::after {
     cursor: pointer;
 }
 
-#connection-settings-btn {
+#settings-btn {
     margin-left: auto;
 }
 
@@ -416,7 +416,9 @@ body.drag-over::after {
     color: var(--text-primary);
 }
 
-#connection-settings-form {
+#connection-settings-form,
+#add-form,
+#settings-form {
     padding: 16px 20px 20px;
 }
 

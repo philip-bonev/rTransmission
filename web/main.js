@@ -364,14 +364,15 @@ function saveLastDownloadDir(dir) {
   localStorage.setItem('lastDownloadDirs', JSON.stringify(list.slice(0, 10)));
 }
 
-function openAddDialog(title, label, placeholder, browse = false) {
+async function openAddDialog(title, label, placeholder, browse = false) {
   document.getElementById('add-dialog-title').textContent = title;
   document.getElementById('add-input-label').textContent = label;
   const input = document.getElementById('add-input');
   input.placeholder = placeholder;
   input.value = '';
   document.getElementById('add-browse-btn').classList.toggle('hidden', !browse);
-  document.getElementById('add-download-dir').value = '';
+  const settings = await getSettings();
+  document.getElementById('add-download-dir').value = settings.default_download_dir || '';
   populateDownloadDirOptions();
   document.getElementById('add-overlay').classList.remove('hidden');
   input.focus();
@@ -379,6 +380,17 @@ function openAddDialog(title, label, placeholder, browse = false) {
 
 function closeAddDialog() {
   document.getElementById('add-overlay').classList.add('hidden');
+}
+
+function openSettingsDialog() {
+  getSettings().then(settings => {
+    document.getElementById('default-download-dir').value = settings.default_download_dir || '';
+    document.getElementById('settings-overlay').classList.remove('hidden');
+  });
+}
+
+function closeSettingsDialog() {
+  document.getElementById('settings-overlay').classList.add('hidden');
 }
 
 function openDeleteDialog() {
@@ -696,6 +708,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (e.target === e.currentTarget) closeConnectionSettings();
   });
   document.getElementById('rpc-auth')?.addEventListener('change', toggleAuthFields);
+
+  document.getElementById('settings-btn')?.addEventListener('click', openSettingsDialog);
+  document.getElementById('settings-close-btn')?.addEventListener('click', closeSettingsDialog);
+  document.getElementById('settings-overlay')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeSettingsDialog();
+  });
+  document.getElementById('settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const current = await getSettings();
+    current.default_download_dir =
+      document.getElementById('default-download-dir').value.trim() || null;
+    await setSettings(current);
+    closeSettingsDialog();
+  });
 
   document.getElementById('connection-settings-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();

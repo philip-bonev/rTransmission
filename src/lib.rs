@@ -26,6 +26,8 @@ pub(crate) struct Settings {
     pub rpc_insecure: bool,
     #[serde(default = "default_auto_connect")]
     pub auto_connect: bool,
+    #[serde(default)]
+    pub default_download_dir: Option<String>,
 }
 
 fn default_auto_connect() -> bool {
@@ -43,6 +45,7 @@ impl Default for Settings {
             rpc_https: false,
             rpc_insecure: false,
             auto_connect: true,
+            default_download_dir: None,
         }
     }
 }
