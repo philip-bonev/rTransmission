@@ -440,6 +440,22 @@ body.drag-over::after {
     line-height: 1.4;
 }
 
+.dialog-hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.dialog-error {
+    font-size: 12px;
+    color: #f44336;
+    background-color: rgba(244, 67, 54, 0.12);
+    border: 1px solid rgba(244, 67, 54, 0.35);
+    border-radius: 5px;
+    padding: 4px 8px;
+    margin-top: 6px;
+}
+
 .form-group input[type="text"],
 .form-group input[type="number"],
 .form-group input[type="password"] {

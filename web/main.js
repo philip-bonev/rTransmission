@@ -33,6 +33,13 @@ function formatSpeed(bytesPerSec) {
   return (bytesPerSec / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
 }
 
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+}
+
 function getStatusClass(status) {
   switch (status) {
     case 'Downloading': return 'status-downloading';
@@ -307,16 +314,44 @@ async function disconnect() {
   }
 }
 
+function showAddError(message) {
+  const el = document.getElementById('add-error');
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+function clearAddError() {
+  const el = document.getElementById('add-error');
+  el.textContent = '';
+  el.classList.add('hidden');
+}
+
+function reportAddError(message) {
+  const overlayOpen = !document.getElementById('add-overlay').classList.contains('hidden');
+  if (overlayOpen) {
+    showAddError(message);
+  } else {
+    alert(message);
+  }
+}
+
 async function addTorrent(input, downloadDir = null) {
   if (!connected) {
-    alert('Connect to a Transmission daemon first');
-    return;
+    reportAddError('Connect to a Transmission daemon first');
+    return false;
+  }
+  try {
+    await invoke('validate_torrent_input', { input });
+  } catch (error) {
+    reportAddError(String(error || 'Invalid torrent input'));
+    return false;
   }
   try {
     await invoke('rpc_add_torrent', { input, downloadDir });
+    return true;
   } catch (error) {
-    console.error('Failed to add torrent:', error);
-    alert('Failed to add torrent: ' + error);
+    reportAddError(String(error || 'Failed to add torrent'));
+    return false;
   }
 }
 
@@ -364,6 +399,26 @@ function saveLastDownloadDir(dir) {
   localStorage.setItem('lastDownloadDirs', JSON.stringify(list.slice(0, 10)));
 }
 
+function updateFreeSpace() {
+  const el = document.getElementById('add-free-space');
+  const path = document.getElementById('add-download-dir').value.trim();
+  if (!path || !connected) {
+    el.textContent = '';
+    el.classList.add('hidden');
+    return;
+  }
+  el.textContent = 'Checking free space…';
+  invoke('rpc_get_free_space', { path })
+    .then(bytes => {
+      el.textContent = `Free space: ${formatBytes(bytes)}`;
+      el.classList.remove('hidden');
+    })
+    .catch(() => {
+      el.textContent = '';
+      el.classList.add('hidden');
+    });
+}
+
 async function openAddDialog(title, label, placeholder, browse = false) {
   document.getElementById('add-dialog-title').textContent = title;
   document.getElementById('add-input-label').textContent = label;
@@ -374,6 +429,8 @@ async function openAddDialog(title, label, placeholder, browse = false) {
   const settings = await getSettings();
   document.getElementById('add-download-dir').value = settings.default_download_dir || '';
   populateDownloadDirOptions();
+  clearAddError();
+  updateFreeSpace();
   document.getElementById('add-overlay').classList.remove('hidden');
   input.focus();
 }
@@ -654,7 +711,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('scroll', closeContextMenu, true);
   window.addEventListener('blur', closeContextMenu);
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeContextMenu();
+    if (e.key !== 'Escape') return;
+    closeContextMenu();
+    closeAddDialog();
+    closeSettingsDialog();
+    closeConnectionSettings();
+    closeDeleteDialog();
   });
 
   document.getElementById('torrent-list')?.addEventListener('click', (e) => {
@@ -704,6 +766,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('connection-settings-btn')?.addEventListener('click', openConnectionSettings);
   document.getElementById('connection-settings-close-btn')?.addEventListener('click', closeConnectionSettings);
+  document.getElementById('connection-settings-cancel-btn')?.addEventListener('click', closeConnectionSettings);
   document.getElementById('connection-settings-overlay')?.addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeConnectionSettings();
   });
@@ -711,6 +774,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('settings-btn')?.addEventListener('click', openSettingsDialog);
   document.getElementById('settings-close-btn')?.addEventListener('click', closeSettingsDialog);
+  document.getElementById('settings-cancel-btn')?.addEventListener('click', closeSettingsDialog);
   document.getElementById('settings-overlay')?.addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeSettingsDialog();
   });
@@ -747,24 +811,38 @@ window.addEventListener('DOMContentLoaded', async () => {
       });
       if (path) {
         document.getElementById('add-input').value = path;
+        clearAddError();
       }
     } catch (error) {
       console.error('Failed to pick file:', error);
     }
   });
 
+  document.getElementById('add-input')?.addEventListener('input', clearAddError);
+
+  let freeSpaceTimer = null;
+  document.getElementById('add-download-dir')?.addEventListener('input', () => {
+    clearTimeout(freeSpaceTimer);
+    freeSpaceTimer = setTimeout(updateFreeSpace, 400);
+  });
+
   document.getElementById('add-close-btn')?.addEventListener('click', closeAddDialog);
+  document.getElementById('add-cancel-btn')?.addEventListener('click', closeAddDialog);
   document.getElementById('add-overlay')?.addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeAddDialog();
   });
   document.getElementById('add-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const value = document.getElementById('add-input').value.trim();
-    if (!value) return;
+    if (!value) {
+      showAddError('Enter a URL, magnet link, or torrent file path');
+      return;
+    }
+    clearAddError();
     const downloadDir = document.getElementById('add-download-dir').value.trim() || null;
     if (downloadDir) saveLastDownloadDir(downloadDir);
-    closeAddDialog();
-    await addTorrent(value, downloadDir);
+    const ok = await addTorrent(value, downloadDir);
+    if (ok) closeAddDialog();
   });
 
   document.getElementById('delete-close-btn')?.addEventListener('click', closeDeleteDialog);
