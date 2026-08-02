@@ -296,6 +296,43 @@ fn save_settings(path: &PathBuf, settings: &Settings) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn validate_torrent_input(input: String) -> Result<(), String> {
+    if input.starts_with("magnet:")
+        || input.starts_with("http://")
+        || input.starts_with("https://")
+    {
+        return Ok(());
+    }
+    let path = std::path::Path::new(&input);
+    if !path.exists() {
+        return Err(format!("File does not exist: {}", input));
+    }
+    let ext = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    match ext.as_ref() {
+        "magnet" => {
+            let content =
+                fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))?;
+            let magnet = content
+                .trim()
+                .lines()
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if !magnet.starts_with("magnet:") {
+                return Err("Magnet file does not contain a magnet link".to_string());
+            }
+            Ok(())
+        }
+        "torrent" => Ok(()),
+        _ => Err("File is not a torrent, magnet link or URL".to_string()),
+    }
+}
+
+#[tauri::command]
 async fn rpc_add_torrent(
     input: String,
     download_dir: Option<String>,
@@ -431,6 +468,27 @@ async fn rpc_queue_move(
         ));
     }
     Ok(())
+}
+
+#[tauri::command]
+async fn rpc_get_free_space(
+    path: String,
+    raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
+) -> Result<i64, String> {
+    let guard = raw_state.lock().await;
+    let raw = guard.as_ref().ok_or("Not connected")?;
+    let json = raw
+        .call("free-space", Some(serde_json::json!({ "path": path })))
+        .await?;
+    if json["result"].as_str() != Some("success") {
+        return Err(format!(
+            "Transmission rejected the request: {}",
+            json["result"].as_str().unwrap_or("unknown")
+        ));
+    }
+    json["arguments"]["size-bytes"]
+        .as_i64()
+        .ok_or_else(|| "size-bytes missing in response".to_string())
 }
 
 #[tauri::command]
@@ -599,10 +657,12 @@ pub fn run() {
             rpc_disconnect,
             rpc_toggle_alt_speed,
             rpc_add_torrent,
+            validate_torrent_input,
             rpc_get_torrents,
             rpc_torrent_action,
             rpc_torrent_remove,
             rpc_queue_move,
+            rpc_get_free_space,
             update_menu_markers,
         ])
         .setup(|app| {
@@ -670,6 +730,21 @@ pub fn run() {
                     MenuItem::with_id(app, "add-file", "Add Torrent File…", true, None::<&str>)?;
                 let file_menu =
                     Submenu::with_items(app, "File", true, &[&add_url, &add_magnet, &add_file])?;
+
+                let edit_menu = Submenu::with_items(
+                    app,
+                    "Edit",
+                    true,
+                    &[
+                        &PredefinedMenuItem::undo(app, None)?,
+                        &PredefinedMenuItem::redo(app, None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::cut(app, None)?,
+                        &PredefinedMenuItem::copy(app, None)?,
+                        &PredefinedMenuItem::paste(app, None)?,
+                        &PredefinedMenuItem::select_all(app, None)?,
+                    ],
+                )?;
 
                 let play = MenuItem::with_id(app, "play", "Play", true, None::<&str>)?;
                 let pause = MenuItem::with_id(app, "pause", "Pause", true, None::<&str>)?;
@@ -795,6 +870,7 @@ pub fn run() {
                     &[
                         &app_menu,
                         &file_menu,
+                        &edit_menu,
                         &torrent_menu,
                         &sort_menu,
                         &filter_menu,

@@ -223,6 +223,7 @@
           </label>
         </div>
         <div class="dialog-actions">
+          <button type="button" id="connection-settings-cancel-btn" class="dialog-btn-secondary">Cancel</button>
           <button type="submit" class="dialog-btn-primary">Save</button>
         </div>
       </form>
@@ -242,13 +243,16 @@
             <input type="text" id="add-input" placeholder="https://example.com/file.torrent" spellcheck="false" />
             <button type="button" id="add-browse-btn" class="dialog-btn-secondary hidden">Browse</button>
           </div>
+          <div id="add-error" class="dialog-error hidden"></div>
         </div>
         <div class="form-group">
           <label for="add-download-dir">Download location (optional)</label>
           <input type="text" id="add-download-dir" list="download-dir-options" placeholder="/path/to/downloads" spellcheck="false" />
           <datalist id="download-dir-options"></datalist>
+          <div id="add-free-space" class="dialog-hint hidden"></div>
         </div>
         <div class="dialog-actions">
+          <button type="button" id="add-cancel-btn" class="dialog-btn-secondary">Cancel</button>
           <button type="submit" class="dialog-btn-primary">Add</button>
         </div>
       </form>
@@ -291,6 +295,7 @@
           <input type="text" id="default-download-dir" placeholder="/path/to/downloads" spellcheck="false" />
         </div>
         <div class="dialog-actions">
+          <button type="button" id="settings-cancel-btn" class="dialog-btn-secondary">Cancel</button>
           <button type="submit" class="dialog-btn-primary">Save</button>
         </div>
       </form>
