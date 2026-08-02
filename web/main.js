@@ -146,7 +146,9 @@ function renderTorrents(torrents) {
 
   if (torrentsCache.length === 0) {
     list.innerHTML = '';
-    empty.querySelector('p').textContent = 'Connect to a Transmission daemon to get started';
+    empty.querySelector('p').textContent = connected
+      ? 'Torrent queue is empty.'
+      : 'Connect to a Transmission daemon to get started';
     empty.style.display = '';
     selectedIds.clear();
     updateActionButtons();
@@ -245,6 +247,9 @@ function updateActionButtons() {
   for (const id of ['start-btn', 'pause-btn', 'verify-btn', 'delete-btn']) {
     document.getElementById(id).disabled = !hasSelection;
   }
+  for (const id of ['queue-top-btn', 'queue-up-btn', 'queue-down-btn', 'queue-bottom-btn']) {
+    document.getElementById(id).disabled = !hasSelection;
+  }
 }
 
 async function getSettings() {
@@ -302,25 +307,72 @@ async function disconnect() {
   }
 }
 
-async function addTorrent(input) {
+async function addTorrent(input, downloadDir = null) {
   if (!connected) {
     alert('Connect to a Transmission daemon first');
     return;
   }
   try {
-    await invoke('rpc_add_torrent', { input });
+    await invoke('rpc_add_torrent', { input, downloadDir });
   } catch (error) {
     console.error('Failed to add torrent:', error);
     alert('Failed to add torrent: ' + error);
   }
 }
 
-function openAddDialog(title, label, placeholder) {
+async function addTorrentFile() {
+  openAddFileDialog();
+}
+
+function openAddFileDialog() {
+  openAddDialog('Add Torrent File', 'Torrent file', '/path/to/file.torrent', true);
+}
+
+function getLastDownloadDirs() {
+  try {
+    const raw = localStorage.getItem('lastDownloadDirs');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getDownloadDirOptions() {
+  const seen = new Map();
+  for (const dir of getLastDownloadDirs()) {
+    if (dir) seen.set(dir, true);
+  }
+  for (const t of torrentsCache) {
+    if (t.download_dir) seen.set(t.download_dir, true);
+  }
+  return Array.from(seen.keys());
+}
+
+function populateDownloadDirOptions() {
+  const datalist = document.getElementById('download-dir-options');
+  datalist.innerHTML = '';
+  for (const dir of getDownloadDirOptions()) {
+    const opt = document.createElement('option');
+    opt.value = dir;
+    datalist.appendChild(opt);
+  }
+}
+
+function saveLastDownloadDir(dir) {
+  const list = getLastDownloadDirs().filter(d => d !== dir);
+  list.unshift(dir);
+  localStorage.setItem('lastDownloadDirs', JSON.stringify(list.slice(0, 10)));
+}
+
+function openAddDialog(title, label, placeholder, browse = false) {
   document.getElementById('add-dialog-title').textContent = title;
   document.getElementById('add-input-label').textContent = label;
   const input = document.getElementById('add-input');
   input.placeholder = placeholder;
   input.value = '';
+  document.getElementById('add-browse-btn').classList.toggle('hidden', !browse);
+  document.getElementById('add-download-dir').value = '';
+  populateDownloadDirOptions();
   document.getElementById('add-overlay').classList.remove('hidden');
   input.focus();
 }
@@ -340,6 +392,36 @@ function openDeleteDialog() {
 
 function closeDeleteDialog() {
   document.getElementById('delete-overlay').classList.add('hidden');
+}
+
+function updateContextMenuChecks() {
+  document.querySelectorAll('#ctx-filter-submenu .context-item').forEach(el => {
+    el.textContent = (el.dataset.filter === filterState ? '✓ ' : '') + el.dataset.label;
+  });
+  document.querySelectorAll('#ctx-sort-submenu .context-item').forEach(el => {
+    const base = el.dataset.label;
+    if (el.dataset.sort) {
+      el.textContent = (el.dataset.sort === sortState ? '✓ ' : '') + base;
+    } else if (el.dataset.sortDir) {
+      const active = el.dataset.sortDir === (sortAscending ? 'asc' : 'desc');
+      el.textContent = (active ? '✓ ' : '') + base;
+    }
+  });
+}
+
+function openContextMenu(x, y) {
+  const menu = document.getElementById('context-menu');
+  updateContextMenuChecks();
+  menu.classList.remove('hidden');
+  const rect = menu.getBoundingClientRect();
+  const px = Math.max(4, Math.min(x, window.innerWidth - rect.width - 4));
+  const py = Math.max(4, Math.min(y, window.innerHeight - rect.height - 4));
+  menu.style.left = px + 'px';
+  menu.style.top = py + 'px';
+}
+
+function closeContextMenu() {
+  document.getElementById('context-menu').classList.add('hidden');
 }
 
 async function runTorrentAction(command, args) {
@@ -391,18 +473,43 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('add-magnet-btn')?.addEventListener('click', () => {
     openAddDialog('Add Magnet Link', 'Magnet link', 'magnet:?xt=urn:btih:...');
   });
-  document.getElementById('add-file-btn')?.addEventListener('click', async () => {
-    try {
-      const path = await open({
-        multiple: false,
-        filters: [{ name: 'Torrent files', extensions: ['torrent', 'magnet'] }],
-      });
-      if (path) {
-        await addTorrent(path);
-      }
-    } catch (error) {
-      console.error('Failed to pick file:', error);
-    }
+  document.getElementById('add-file-btn')?.addEventListener('click', addTorrentFile);
+
+  await listen('menu-connection-settings', openConnectionSettings);
+  await listen('menu-add-url', () => {
+    openAddDialog('Add Torrent URL', 'URL', 'https://example.com/file.torrent');
+  });
+  await listen('menu-add-magnet', () => {
+    openAddDialog('Add Magnet Link', 'Magnet link', 'magnet:?xt=urn:btih:...');
+  });
+  await listen('menu-add-file', addTorrentFile);
+  await listen('menu-play', () => {
+    runTorrentAction('rpc_torrent_action', { action: 'start', ids: getSelectedIds() });
+  });
+  await listen('menu-pause', () => {
+    runTorrentAction('rpc_torrent_action', { action: 'pause', ids: getSelectedIds() });
+  });
+  await listen('menu-delete', openDeleteDialog);
+  await listen('menu-verify', () => {
+    runTorrentAction('rpc_torrent_action', { action: 'verify', ids: getSelectedIds() });
+  });
+  await listen('menu-sort', (event) => {
+    sortState = event.payload;
+    document.getElementById('sort-select').value = sortState;
+    renderTorrents(torrentsCache);
+  });
+  await listen('menu-sort-dir', (event) => {
+    sortAscending = event.payload === 'asc';
+    const checkbox = document.getElementById('sort-asc');
+    checkbox.checked = sortAscending;
+    const label = document.querySelector('#sort-asc-label');
+    if (label) label.lastChild.textContent = sortAscending ? ' Asc' : ' Desc';
+    renderTorrents(torrentsCache);
+  });
+  await listen('menu-filter', (event) => {
+    filterState = event.payload;
+    document.getElementById('filter-select').value = filterState;
+    renderTorrents(torrentsCache);
   });
 
   document.getElementById('start-btn')?.addEventListener('click', () => {
@@ -415,6 +522,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('verify-btn')?.addEventListener('click', () => {
     runTorrentAction('rpc_torrent_action', { action: 'verify', ids: getSelectedIds() });
+  });
+
+  document.getElementById('queue-top-btn')?.addEventListener('click', () => {
+    runTorrentAction('rpc_queue_move', { action: 'top', ids: getSelectedIds() });
+  });
+  document.getElementById('queue-up-btn')?.addEventListener('click', () => {
+    runTorrentAction('rpc_queue_move', { action: 'up', ids: getSelectedIds() });
+  });
+  document.getElementById('queue-down-btn')?.addEventListener('click', () => {
+    runTorrentAction('rpc_queue_move', { action: 'down', ids: getSelectedIds() });
+  });
+  document.getElementById('queue-bottom-btn')?.addEventListener('click', () => {
+    runTorrentAction('rpc_queue_move', { action: 'bottom', ids: getSelectedIds() });
   });
 
   document.getElementById('alt-speed-btn')?.addEventListener('click', async () => {
@@ -430,11 +550,21 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('filter-select')?.addEventListener('change', (e) => {
     filterState = e.target.value;
     renderTorrents(torrentsCache);
+    invoke('update_menu_markers', {
+      sort: sortState,
+      sortDir: sortAscending ? 'asc' : 'desc',
+      filter: filterState,
+    });
   });
 
   document.getElementById('sort-select')?.addEventListener('change', (e) => {
     sortState = e.target.value;
     renderTorrents(torrentsCache);
+    invoke('update_menu_markers', {
+      sort: sortState,
+      sortDir: sortAscending ? 'asc' : 'desc',
+      filter: filterState,
+    });
   });
 
   document.getElementById('sort-asc')?.addEventListener('change', (e) => {
@@ -442,10 +572,77 @@ window.addEventListener('DOMContentLoaded', async () => {
     const label = document.querySelector('#sort-asc-label');
     if (label) label.lastChild.textContent = sortAscending ? ' Asc' : ' Desc';
     renderTorrents(torrentsCache);
+    invoke('update_menu_markers', {
+      sort: sortState,
+      sortDir: sortAscending ? 'asc' : 'desc',
+      filter: filterState,
+    });
   });
 
   document.getElementById('torrent-list')?.addEventListener('mousedown', (e) => {
     e.preventDefault();
+  });
+
+  document.getElementById('torrent-list')?.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const card = e.target.closest('.torrent-card');
+    if (card) {
+      const id = card.dataset.id;
+      if (!selectedIds.has(id)) {
+        selectedIds.clear();
+        selectedIds.add(id);
+        applySelection();
+      }
+      lastSelectedId = id;
+    }
+    openContextMenu(e.clientX, e.clientY);
+  });
+
+  document.getElementById('context-menu')?.addEventListener('click', (e) => {
+    const item = e.target.closest('.context-item');
+    if (!item) return;
+    closeContextMenu();
+    const marker = { sort: sortState, sortDir: sortAscending ? 'asc' : 'desc', filter: filterState };
+    if (item.dataset.action) {
+      const action = item.dataset.action;
+      if (action === 'delete') {
+        openDeleteDialog();
+      } else {
+        const rpcAction = action === 'play' ? 'start' : action;
+        runTorrentAction('rpc_torrent_action', { action: rpcAction, ids: getSelectedIds() });
+      }
+    } else if (item.dataset.filter) {
+      filterState = item.dataset.filter;
+      document.getElementById('filter-select').value = filterState;
+      renderTorrents(torrentsCache);
+      invoke('update_menu_markers', marker);
+    } else if (item.dataset.sort) {
+      sortState = item.dataset.sort;
+      document.getElementById('sort-select').value = sortState;
+      renderTorrents(torrentsCache);
+      invoke('update_menu_markers', marker);
+    } else if (item.dataset.sortDir) {
+      sortAscending = item.dataset.sortDir === 'asc';
+      document.getElementById('sort-asc').checked = sortAscending;
+      const label = document.querySelector('#sort-asc-label');
+      if (label) label.lastChild.textContent = sortAscending ? ' Asc' : ' Desc';
+      renderTorrents(torrentsCache);
+      invoke('update_menu_markers', marker);
+    }
+  });
+
+  document.addEventListener('contextmenu', (e) => {
+    if (!e.target.closest('#torrent-list') && !e.target.closest('#context-menu')) {
+      closeContextMenu();
+    }
+  });
+  window.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('#context-menu')) closeContextMenu();
+  });
+  window.addEventListener('scroll', closeContextMenu, true);
+  window.addEventListener('blur', closeContextMenu);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeContextMenu();
   });
 
   document.getElementById('torrent-list')?.addEventListener('click', (e) => {
@@ -516,6 +713,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     closeConnectionSettings();
   });
 
+  document.getElementById('add-browse-btn')?.addEventListener('click', async () => {
+    try {
+      const path = await open({
+        multiple: false,
+        filters: [{ name: 'Torrent files', extensions: ['torrent', 'magnet'] }],
+      });
+      if (path) {
+        document.getElementById('add-input').value = path;
+      }
+    } catch (error) {
+      console.error('Failed to pick file:', error);
+    }
+  });
+
   document.getElementById('add-close-btn')?.addEventListener('click', closeAddDialog);
   document.getElementById('add-overlay')?.addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeAddDialog();
@@ -524,8 +735,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const value = document.getElementById('add-input').value.trim();
     if (!value) return;
+    const downloadDir = document.getElementById('add-download-dir').value.trim() || null;
+    if (downloadDir) saveLastDownloadDir(downloadDir);
     closeAddDialog();
-    await addTorrent(value);
+    await addTorrent(value, downloadDir);
   });
 
   document.getElementById('delete-close-btn')?.addEventListener('click', closeDeleteDialog);
@@ -553,6 +766,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   const cliFile = await invoke('get_cli_file');
+  invoke('update_menu_markers', {
+    sort: sortState,
+    sortDir: sortAscending ? 'asc' : 'desc',
+    filter: filterState,
+  });
   if (settings.auto_connect) {
     await connect(true);
   }

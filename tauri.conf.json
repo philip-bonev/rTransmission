@@ -13,6 +13,8 @@
         "title": "rTransmission Client",
         "width": 800,
         "height": 600,
+        "minWidth": 640,
+        "minHeight": 480,
         "resizable": true,
         "fullscreen": false
       }

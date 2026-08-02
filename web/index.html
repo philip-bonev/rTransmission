@@ -88,6 +88,35 @@
       </svg>
     </button>
     <div class="toolbar-separator"></div>
+    <button id="queue-top-btn" class="toolbar-btn" title="Move selected torrents to top of queue" disabled>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 13l7-7 7 7" />
+        <path d="M5 20l7-7 7 7" />
+      </svg>
+    </button>
+    <button id="queue-up-btn" class="toolbar-btn" title="Move selected torrents up in queue" disabled>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20V5" />
+        <path d="M6 11l6-6 6 6" />
+      </svg>
+    </button>
+    <button id="queue-down-btn" class="toolbar-btn" title="Move selected torrents down in queue" disabled>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 4v15" />
+        <path d="M6 13l6 6 6-6" />
+      </svg>
+    </button>
+    <button id="queue-bottom-btn" class="toolbar-btn" title="Move selected torrents to bottom of queue" disabled>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 11l7 7 7-7" />
+        <path d="M5 4l7 7 7-7" />
+      </svg>
+    </button>
+    <div class="toolbar-separator"></div>
     <select id="filter-select" title="Filter torrents by state">
       <option value="all">All states</option>
       <option value="downloading">Downloading</option>
@@ -195,7 +224,15 @@
       <form id="add-form">
         <div class="form-group">
           <label id="add-input-label" for="add-input">URL</label>
-          <input type="text" id="add-input" placeholder="https://example.com/file.torrent" spellcheck="false" />
+          <div class="add-input-row">
+            <input type="text" id="add-input" placeholder="https://example.com/file.torrent" spellcheck="false" />
+            <button type="button" id="add-browse-btn" class="dialog-btn-secondary hidden">Browse</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="add-download-dir">Download location (optional)</label>
+          <input type="text" id="add-download-dir" list="download-dir-options" placeholder="/path/to/downloads" spellcheck="false" />
+          <datalist id="download-dir-options"></datalist>
         </div>
         <div class="dialog-actions">
           <button type="submit" class="dialog-btn-primary">Add</button>
@@ -225,6 +262,41 @@
           <button type="submit" class="dialog-btn-primary">Delete</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div id="context-menu" class="context-menu hidden">
+    <div class="context-item" data-action="play">Play</div>
+    <div class="context-item" data-action="pause">Pause</div>
+    <div class="context-item" data-action="delete">Delete</div>
+    <div class="context-item" data-action="verify">Verify</div>
+    <div class="context-separator"></div>
+    <div class="context-item has-submenu">
+      Filter
+      <span class="context-arrow">▸</span>
+      <div class="context-submenu" id="ctx-filter-submenu">
+        <div class="context-item" data-filter="all" data-label="All">All</div>
+        <div class="context-item" data-filter="downloading" data-label="Downloading">Downloading</div>
+        <div class="context-item" data-filter="paused" data-label="Paused">Paused</div>
+        <div class="context-item" data-filter="seeding" data-label="Seeding">Seeding</div>
+        <div class="context-item" data-filter="verifying" data-label="Verifying">Verifying</div>
+        <div class="context-item" data-filter="finished" data-label="Finished">Finished</div>
+      </div>
+    </div>
+    <div class="context-item has-submenu">
+      Sort
+      <span class="context-arrow">▸</span>
+      <div class="context-submenu" id="ctx-sort-submenu">
+        <div class="context-item" data-sort="date" data-label="Date">Date</div>
+        <div class="context-item" data-sort="leechers" data-label="Leechers">Leechers</div>
+        <div class="context-item" data-sort="name" data-label="Name">Name</div>
+        <div class="context-item" data-sort="queue" data-label="Queue">Queue</div>
+        <div class="context-item" data-sort="seeders" data-label="Seeders">Seeders</div>
+        <div class="context-item" data-sort="size" data-label="Size">Size</div>
+        <div class="context-separator"></div>
+        <div class="context-item" data-sort-dir="asc" data-label="Ascending">Ascending</div>
+        <div class="context-item" data-sort-dir="desc" data-label="Descending">Descending</div>
+      </div>
     </div>
   </div>
 </body>

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -50,6 +51,9 @@ pub(crate) struct AppState {
     pub cli_file: Option<String>,
     pub settings: Settings,
     pub settings_path: PathBuf,
+    pub sort_menu_items: HashMap<String, (tauri::menu::MenuItem<tauri::Wry>, String)>,
+    pub sort_dir_menu_items: HashMap<String, (tauri::menu::MenuItem<tauri::Wry>, String)>,
+    pub filter_menu_items: HashMap<String, (tauri::menu::MenuItem<tauri::Wry>, String)>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -66,6 +70,7 @@ pub(crate) struct TorrentInfo {
     pub queue_position: i64,
     pub added_date: i64,
     pub total_size: i64,
+    pub download_dir: String,
     pub error: bool,
     pub error_string: String,
 }
@@ -159,6 +164,25 @@ impl RawRpc {
     }
 }
 
+fn mark_active(items: &HashMap<String, (tauri::menu::MenuItem<tauri::Wry>, String)>, active: &str) {
+    for (key, (item, base)) in items {
+        let text = if key == active {
+            format!("✓ {}", base)
+        } else {
+            base.clone()
+        };
+        let _ = item.set_text(text);
+    }
+}
+
+#[tauri::command]
+fn update_menu_markers(state: State<Mutex<AppState>>, sort: String, sort_dir: String, filter: String) {
+    let state = state.inner().lock().unwrap();
+    mark_active(&state.sort_menu_items, &sort);
+    mark_active(&state.sort_dir_menu_items, &sort_dir);
+    mark_active(&state.filter_menu_items, &filter);
+}
+
 fn status_to_string(status: &TorrentStatus) -> String {
     match status {
         TorrentStatus::Stopped => "Stopped",
@@ -187,6 +211,7 @@ fn torrent_fields() -> Vec<TorrentGetField> {
         TorrentGetField::QueuePosition,
         TorrentGetField::AddedDate,
         TorrentGetField::TotalSize,
+        TorrentGetField::DownloadDir,
         TorrentGetField::Error,
         TorrentGetField::ErrorString,
     ]
@@ -208,6 +233,7 @@ fn map_torrents(torrents: &[Torrent]) -> Vec<TorrentInfo> {
             queue_position: t.queue_position.unwrap_or(0) as i64,
             added_date: t.added_date.map(|d| d.timestamp()).unwrap_or(0),
             total_size: t.total_size.unwrap_or(0),
+            download_dir: t.download_dir.clone().unwrap_or_default(),
             error: t.error_string.is_some() && !t.error_string.as_ref().unwrap().is_empty(),
             error_string: t.error_string.clone().unwrap_or_default(),
         })
@@ -269,6 +295,7 @@ fn save_settings(path: &PathBuf, settings: &Settings) -> Result<(), String> {
 #[tauri::command]
 async fn rpc_add_torrent(
     input: String,
+    download_dir: Option<String>,
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
 ) -> Result<String, String> {
     let mut guard = client_state.lock().await;
@@ -280,6 +307,7 @@ async fn rpc_add_torrent(
     {
         TorrentAddArgs {
             filename: Some(input),
+            download_dir,
             ..TorrentAddArgs::default()
         }
     } else {
@@ -307,6 +335,7 @@ async fn rpc_add_torrent(
                 }
                 TorrentAddArgs {
                     filename: Some(magnet),
+                    download_dir,
                     ..TorrentAddArgs::default()
                 }
             }
@@ -314,6 +343,7 @@ async fn rpc_add_torrent(
                 let bytes = fs::read(path).map_err(|e| format!("Failed to read file: {}", e))?;
                 TorrentAddArgs {
                     metainfo: Some(base64_encode(&bytes)),
+                    download_dir,
                     ..TorrentAddArgs::default()
                 }
             }
@@ -368,6 +398,33 @@ async fn rpc_torrent_action(
         return Err(format!(
             "Transmission rejected the request: {}",
             response.result
+        ));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn rpc_queue_move(
+    action: String,
+    ids: Vec<i64>,
+    raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
+) -> Result<(), String> {
+    let method = match action.as_str() {
+        "top" => "queue-move-top",
+        "up" => "queue-move-up",
+        "down" => "queue-move-down",
+        "bottom" => "queue-move-bottom",
+        _ => return Err(format!("Unknown queue action: {}", action)),
+    };
+    let guard = raw_state.lock().await;
+    let raw = guard.as_ref().ok_or("Not connected")?;
+    let json = raw
+        .call(method, Some(serde_json::json!({ "ids": ids })))
+        .await?;
+    if json["result"].as_str() != Some("success") {
+        return Err(format!(
+            "Transmission rejected the request: {}",
+            json["result"].as_str().unwrap_or("unknown")
         ));
     }
     Ok(())
@@ -542,6 +599,8 @@ pub fn run() {
             rpc_get_torrents,
             rpc_torrent_action,
             rpc_torrent_remove,
+            rpc_queue_move,
+            update_menu_markers,
         ])
         .setup(|app| {
             let home = std::env::var("HOME")
@@ -565,9 +624,232 @@ pub fn run() {
                 cli_file,
                 settings,
                 settings_path,
+                sort_menu_items: HashMap::new(),
+                sort_dir_menu_items: HashMap::new(),
+                filter_menu_items: HashMap::new(),
             }));
             app.manage(tokio::sync::Mutex::new(None::<TransClient>));
             app.manage(tokio::sync::Mutex::new(None::<RawRpc>));
+
+            {
+                use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+
+                let connection_settings = MenuItem::with_id(
+                    app,
+                    "connection-settings",
+                    "Connection Settings…",
+                    true,
+                    None::<&str>,
+                )?;
+                let app_menu = Submenu::with_items(
+                    app,
+                    app.package_info().name.clone(),
+                    true,
+                    &[
+                        &PredefinedMenuItem::about(app, None, None)?,
+                        &connection_settings,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::services(app, None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::hide(app, None)?,
+                        &PredefinedMenuItem::hide_others(app, None)?,
+                        &PredefinedMenuItem::show_all(app, None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::quit(app, None)?,
+                    ],
+                )?;
+
+                let add_url =
+                    MenuItem::with_id(app, "add-url", "Add Torrent URL…", true, None::<&str>)?;
+                let add_magnet =
+                    MenuItem::with_id(app, "add-magnet", "Add Magnet Link…", true, None::<&str>)?;
+                let add_file =
+                    MenuItem::with_id(app, "add-file", "Add Torrent File…", true, None::<&str>)?;
+                let file_menu =
+                    Submenu::with_items(app, "File", true, &[&add_url, &add_magnet, &add_file])?;
+
+                let play = MenuItem::with_id(app, "play", "Play", true, None::<&str>)?;
+                let pause = MenuItem::with_id(app, "pause", "Pause", true, None::<&str>)?;
+                let delete = MenuItem::with_id(app, "delete", "Delete", true, None::<&str>)?;
+                let verify = MenuItem::with_id(app, "verify", "Verify", true, None::<&str>)?;
+                let torrent_menu =
+                    Submenu::with_items(app, "Torrent", true, &[&play, &pause, &delete, &verify])?;
+
+                let sort_defs = [
+                    ("sort-date", "Date"),
+                    ("sort-leechers", "Leechers"),
+                    ("sort-name", "Name"),
+                    ("sort-queue", "Queue"),
+                    ("sort-seeders", "Seeders"),
+                    ("sort-size", "Size"),
+                ];
+                let sort_items = sort_defs
+                    .iter()
+                    .map(|(id, label)| {
+                        let item = MenuItem::with_id(app, *id, *label, true, None::<&str>)?;
+                        Ok(((*id).to_string(), (item, (*label).to_string())))
+                    })
+                    .collect::<tauri::Result<HashMap<_, _>>>()?;
+                let sort_dir_defs = [
+                    ("sort-asc", "Sort Ascending"),
+                    ("sort-desc", "Sort Descending"),
+                ];
+                let sort_dir_items = sort_dir_defs
+                    .iter()
+                    .map(|(id, label)| {
+                        let item = MenuItem::with_id(app, *id, *label, true, None::<&str>)?;
+                        Ok(((*id).to_string(), (item, (*label).to_string())))
+                    })
+                    .collect::<tauri::Result<HashMap<_, _>>>()?;
+                let sort_dir_buttons: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> =
+                    sort_dir_items
+                        .values()
+                        .map(|(item, _)| item as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
+                        .collect();
+
+                let mut sort_dir_state_map = std::collections::HashMap::new();
+                for (id, (item, label)) in &sort_dir_items {
+                    sort_dir_state_map.insert(
+                        id.trim_start_matches("sort-").to_string(),
+                        (item.clone(), label.clone()),
+                    );
+                }
+                app.state::<Mutex<AppState>>()
+                    .inner()
+                    .lock()
+                    .unwrap()
+                    .sort_dir_menu_items = sort_dir_state_map;
+
+                let sort_buttons: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = sort_items
+                    .values()
+                    .map(|(item, _)| item as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
+                    .collect();
+
+                let sort_separator = PredefinedMenuItem::separator(app)?;
+                let sort_all_buttons: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = sort_buttons
+                    .iter()
+                    .map(|&b| b as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
+                    .chain(
+                        [&sort_separator as &dyn tauri::menu::IsMenuItem<tauri::Wry>]
+                            .into_iter(),
+                    )
+                    .chain(
+                        sort_dir_buttons
+                            .iter()
+                            .map(|&b| b as &dyn tauri::menu::IsMenuItem<tauri::Wry>),
+                    )
+                    .collect();
+                let sort_menu = Submenu::with_items(app, "Sort", true, &sort_all_buttons)?;
+
+                let filter_defs = [
+                    ("filter-all", "All"),
+                    ("filter-downloading", "Downloading"),
+                    ("filter-finished", "Finished"),
+                    ("filter-paused", "Paused"),
+                    ("filter-seeding", "Seeding"),
+                    ("filter-verifying", "Verifying"),
+                ];
+                let filter_items = filter_defs
+                    .iter()
+                    .map(|(id, label)| {
+                        let item = MenuItem::with_id(app, *id, *label, true, None::<&str>)?;
+                        Ok(((*id).to_string(), (item, (*label).to_string())))
+                    })
+                    .collect::<tauri::Result<HashMap<_, _>>>()?;
+                let filter_buttons: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = filter_items
+                    .values()
+                    .map(|(item, _)| item as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
+                    .collect();
+                let filter_menu = Submenu::with_items(app, "Filter", true, &filter_buttons)?;
+
+                let mut sort_state_map = std::collections::HashMap::new();
+                for (id, (item, label)) in &sort_items {
+                    sort_state_map.insert(
+                        id.trim_start_matches("sort-").to_string(),
+                        (item.clone(), label.clone()),
+                    );
+                }
+                app.state::<Mutex<AppState>>()
+                    .inner()
+                    .lock()
+                    .unwrap()
+                    .sort_menu_items = sort_state_map;
+                let mut filter_state_map = std::collections::HashMap::new();
+                for (id, (item, label)) in &filter_items {
+                    filter_state_map.insert(
+                        id.trim_start_matches("filter-").to_string(),
+                        (item.clone(), label.clone()),
+                    );
+                }
+                app.state::<Mutex<AppState>>()
+                    .inner()
+                    .lock()
+                    .unwrap()
+                    .filter_menu_items = filter_state_map;
+
+                let menu = Menu::with_items(
+                    app,
+                    &[
+                        &app_menu,
+                        &file_menu,
+                        &torrent_menu,
+                        &sort_menu,
+                        &filter_menu,
+                    ],
+                )?;
+                app.set_menu(menu)?;
+
+                app.on_menu_event(|app_handle, event| {
+                    let id = event.id().as_ref();
+                    match id {
+                        "connection-settings" => {
+                            let _ = app_handle.emit("menu-connection-settings", ());
+                        }
+                        "add-url" => {
+                            let _ = app_handle.emit("menu-add-url", ());
+                        }
+                        "add-magnet" => {
+                            let _ = app_handle.emit("menu-add-magnet", ());
+                        }
+                        "add-file" => {
+                            let _ = app_handle.emit("menu-add-file", ());
+                        }
+                        "play" => {
+                            let _ = app_handle.emit("menu-play", ());
+                        }
+                        "pause" => {
+                            let _ = app_handle.emit("menu-pause", ());
+                        }
+                        "delete" => {
+                            let _ = app_handle.emit("menu-delete", ());
+                        }
+                        "verify" => {
+                            let _ = app_handle.emit("menu-verify", ());
+                        }
+                        "sort-queue" | "sort-date" | "sort-size" | "sort-name"
+                        | "sort-seeders" | "sort-leechers" => {
+                            let key = id.trim_start_matches("sort-").to_string();
+                            let state = app_handle.state::<Mutex<AppState>>();
+                            mark_active(&state.inner().lock().unwrap().sort_menu_items, &key);
+                            let _ = app_handle.emit("menu-sort", key);
+                        }
+                        "sort-asc" | "sort-desc" => {
+                            let key = id.trim_start_matches("sort-").to_string();
+                            let state = app_handle.state::<Mutex<AppState>>();
+                            mark_active(&state.inner().lock().unwrap().sort_dir_menu_items, &key);
+                            let _ = app_handle.emit("menu-sort-dir", key);
+                        }
+                        "filter-all" | "filter-downloading" | "filter-paused"
+                        | "filter-seeding" | "filter-verifying" | "filter-finished" => {
+                            let key = id.trim_start_matches("filter-").to_string();
+                            let state = app_handle.state::<Mutex<AppState>>();
+                            mark_active(&state.inner().lock().unwrap().filter_menu_items, &key);
+                            let _ = app_handle.emit("menu-filter", key);
+                        }
+                        _ => {}
+                    }
+                });
+            }
 
             let handle = app.handle().clone();
             let fields = torrent_fields();
