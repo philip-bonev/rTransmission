@@ -355,6 +355,19 @@ async function addTorrent(input, downloadDir = null) {
   }
 }
 
+async function handleIncomingTorrent(input) {
+  const value = input?.trim();
+  if (!value) return;
+  const lower = value.toLowerCase();
+  if (lower.startsWith('magnet:')) {
+    openAddDialog('Add Magnet Link', 'Magnet link', 'magnet:?xt=urn:btih:...', false, value);
+  } else if (lower.startsWith('http://') || lower.startsWith('https://')) {
+    openAddDialog('Add Torrent URL', 'URL', 'https://example.com/file.torrent', false, value);
+  } else {
+    openAddDialog('Add Torrent File', 'Torrent file', '/path/to/file.torrent', true, value);
+  }
+}
+
 async function addTorrentFile() {
   openAddFileDialog();
 }
@@ -419,12 +432,12 @@ function updateFreeSpace() {
     });
 }
 
-async function openAddDialog(title, label, placeholder, browse = false) {
+async function openAddDialog(title, label, placeholder, browse = false, prefill = '') {
   document.getElementById('add-dialog-title').textContent = title;
   document.getElementById('add-input-label').textContent = label;
   const input = document.getElementById('add-input');
   input.placeholder = placeholder;
-  input.value = '';
+  input.value = prefill;
   document.getElementById('add-browse-btn').classList.toggle('hidden', !browse);
   const settings = await getSettings();
   document.getElementById('add-download-dir').value = settings.default_download_dir || '';
@@ -879,7 +892,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     await connect(true);
   }
   if (cliFile) {
-    await addTorrent(cliFile);
+    await handleIncomingTorrent(cliFile);
   }
 
   const body = document.body;
@@ -913,7 +926,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       if (text) {
         const trimmed = text.trim().split(/\r?\n/)[0].trim();
         if (trimmed.startsWith('magnet:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-          await addTorrent(trimmed);
+          await handleIncomingTorrent(trimmed);
         }
       }
     }
@@ -925,7 +938,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const payload = event.payload;
     if (payload && payload.paths && payload.paths.length > 0) {
       const filePath = payload.paths[0];
-      await addTorrent(filePath);
+      await handleIncomingTorrent(filePath);
     }
   });
 
@@ -933,7 +946,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (event.payload) {
       const filePath = typeof event.payload === 'string' ? event.payload : event.payload.path;
       if (filePath) {
-        await addTorrent(filePath);
+        await handleIncomingTorrent(filePath);
       }
     }
   });

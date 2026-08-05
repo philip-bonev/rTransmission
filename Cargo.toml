@@ -1,6 +1,6 @@
 [package]
 name = "rtransmission-client"
-version = "0.1.0"
+version = "1.0.0"
 description = "rTransmission Client"
 authors = ["Philip Bonev"]
 license = "GPL v2"

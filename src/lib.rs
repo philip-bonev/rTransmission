@@ -50,8 +50,9 @@ impl Default for Settings {
     }
 }
 
+static CLI_FILE: Mutex<Option<String>> = Mutex::new(None);
+
 pub(crate) struct AppState {
-    pub cli_file: Option<String>,
     pub settings: Settings,
     pub settings_path: PathBuf,
     pub sort_menu_items: HashMap<String, (tauri::menu::MenuItem<tauri::Wry>, String)>,
@@ -405,7 +406,7 @@ async fn rpc_add_torrent(
         TorrentAddedOrDuplicate::TorrentAdded(t) => {
             Ok(format!("Added torrent: {}", t.name.unwrap_or_default()))
         }
-        TorrentAddedOrDuplicate::TorrentDuplicate(t) => Ok(format!(
+        TorrentAddedOrDuplicate::TorrentDuplicate(t) => Err(format!(
             "Torrent already exists: {}",
             t.name.unwrap_or_default()
         )),
@@ -514,9 +515,8 @@ async fn rpc_torrent_remove(
 }
 
 #[tauri::command]
-fn get_cli_file(state: State<'_, Mutex<AppState>>) -> Option<String> {
-    let mut state = state.lock().unwrap();
-    state.cli_file.take()
+fn get_cli_file() -> Option<String> {
+    CLI_FILE.lock().unwrap().take()
 }
 
 #[tauri::command]
@@ -642,11 +642,8 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             use tauri::Emitter;
-            use tauri::Manager;
             if let Some(path) = find_file_in_args(argv.iter().cloned()) {
-                let state = app.state::<Mutex<AppState>>();
-                let mut state = state.inner().lock().unwrap();
-                state.cli_file = Some(path.clone());
+                *CLI_FILE.lock().unwrap() = Some(path.clone());
                 let _ = app.emit("file-opened", path);
             }
         }))
@@ -684,8 +681,10 @@ pub fn run() {
             fs::create_dir_all(&config_dir).expect("failed to create config dir");
             let settings_path = config_dir.join("config.json");
             let settings = load_settings(&settings_path);
+            if CLI_FILE.lock().unwrap().is_none() {
+                *CLI_FILE.lock().unwrap() = cli_file;
+            }
             app.manage(Mutex::new(AppState {
-                cli_file,
                 settings,
                 settings_path,
                 sort_menu_items: HashMap::new(),
@@ -988,22 +987,17 @@ pub fn run() {
         #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
         if let tauri::RunEvent::Opened { urls } = event {
             use tauri::Emitter;
-            use tauri::Manager;
             for url in urls {
                 if url.scheme() == "file"
                     && let Ok(path) = url.to_file_path()
                     && is_torrent_input(&path.to_string_lossy())
                 {
                     let path_str = path.to_string_lossy().to_string();
-                    let state = app_handle.state::<Mutex<AppState>>();
-                    let mut state = state.inner().lock().unwrap();
-                    state.cli_file = Some(path_str.clone());
+                    *CLI_FILE.lock().unwrap() = Some(path_str.clone());
                     let _ = app_handle.emit("file-opened", path_str);
                 } else if matches!(url.scheme(), "magnet" | "http" | "https") {
                     let url_str = url.to_string();
-                    let state = app_handle.state::<Mutex<AppState>>();
-                    let mut state = state.inner().lock().unwrap();
-                    state.cli_file = Some(url_str.clone());
+                    *CLI_FILE.lock().unwrap() = Some(url_str.clone());
                     let _ = app_handle.emit("file-opened", url_str);
                 }
             }

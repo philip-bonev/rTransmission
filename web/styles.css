@@ -418,7 +418,8 @@ body.drag-over::after {
 
 #connection-settings-form,
 #add-form,
-#settings-form {
+#settings-form,
+#delete-form {
     padding: 16px 20px 20px;
 }
 
