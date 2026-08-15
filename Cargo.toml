@@ -1,6 +1,6 @@
 [package]
 name = "rtransmission-client"
-version = "1.0.0"
+version = "1.0.1"
 description = "rTransmission Client"
 authors = ["Philip Bonev"]
 license = "GPL v2"
@@ -30,4 +30,5 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 transmission-rpc = "0.5"
 tokio = { version = "1", features = ["full"] }
 url = "2"
+keyring = "4.1"
 

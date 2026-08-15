@@ -284,14 +284,48 @@ fn base64_encode(data: &[u8]) -> String {
 }
 
 fn load_settings(path: &PathBuf) -> Settings {
-    fs::read_to_string(path)
+    let mut settings: Settings = fs::read_to_string(path)
         .ok()
         .and_then(|content| serde_json::from_str(&content).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    if let Some(password) = keyring_get_password() {
+        settings.rpc_password = password;
+    } else if !settings.rpc_password.is_empty() && keyring_set_password(&settings.rpc_password).is_ok()
+    {
+        let mut stripped = settings.clone();
+        stripped.rpc_password = String::new();
+        let _ = save_settings(path, &stripped);
+    }
+    settings
+}
+
+const KEYRING_SERVICE: &str = "rtransmission-client";
+const KEYRING_ACCOUNT: &str = "rpc-password";
+
+fn keyring_get_password() -> Option<String> {
+    keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
+        .ok()
+        .and_then(|entry| entry.get_password().ok())
+}
+
+fn keyring_set_password(password: &str) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
+        .map_err(|e| format!("Keychain unavailable: {}", e))?;
+    entry
+        .set_password(password)
+        .map_err(|e| format!("Failed to store password in keychain: {}", e))
+}
+
+fn keyring_delete_password() {
+    if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT) {
+        let _ = entry.delete_credential();
+    }
 }
 
 fn save_settings(path: &PathBuf, settings: &Settings) -> Result<(), String> {
-    let content = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
+    let mut disk = settings.clone();
+    disk.rpc_password = String::new();
+    let content = serde_json::to_string_pretty(&disk).map_err(|e| e.to_string())?;
     fs::write(path, content).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -529,6 +563,18 @@ fn get_settings(state: State<'_, Mutex<AppState>>) -> Result<Settings, String> {
 fn set_settings(new_settings: Settings, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
     let mut state = state.lock().unwrap();
     state.settings = new_settings.clone();
+
+    let password = new_settings.rpc_password.clone();
+    if password.is_empty() {
+        keyring_delete_password();
+    } else if keyring_set_password(&password).is_err() {
+        // Keychain unavailable: fall back to storing the password in config.json
+        let mut disk = new_settings.clone();
+        disk.rpc_password = password;
+        let content = serde_json::to_string_pretty(&disk).map_err(|e| e.to_string())?;
+        fs::write(&state.settings_path, content).map_err(|e| e.to_string())?;
+        return Ok(());
+    }
     save_settings(&state.settings_path, &new_settings)
 }
 
