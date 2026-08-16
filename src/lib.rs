@@ -51,7 +51,6 @@ impl Default for Settings {
 }
 
 static CLI_FILE: Mutex<Option<String>> = Mutex::new(None);
-static PROPERTIES_DATA: Mutex<Option<TorrentDetails>> = Mutex::new(None);
 static PROPERTIES_ID: Mutex<Option<i64>> = Mutex::new(None);
 
 pub(crate) struct AppState {
@@ -671,6 +670,7 @@ async fn rpc_connect(
     args: ConnectRequest,
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
     raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
+    pause_set_state: State<'_, tokio::sync::Mutex<HashSet<i64>>>,
 ) -> Result<(), String> {
     let scheme = if args.https { "https" } else { "http" };
     let url_str = format!("{}://{}:{}/transmission/rpc", scheme, args.host, args.port);
@@ -709,6 +709,7 @@ async fn rpc_connect(
         session_id: std::sync::RwLock::new(None),
         client: http_client,
     };
+    pause_set_state.lock().await.clear();
     *client_state.lock().await = Some(client);
     *raw_state.lock().await = Some(raw);
     Ok(())
@@ -733,9 +734,11 @@ async fn rpc_toggle_alt_speed(
 async fn rpc_disconnect(
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
     raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
+    pause_set_state: State<'_, tokio::sync::Mutex<HashSet<i64>>>,
 ) -> Result<(), String> {
     *client_state.lock().await = None;
     *raw_state.lock().await = None;
+    pause_set_state.lock().await.clear();
     Ok(())
 }
 
@@ -809,17 +812,18 @@ async fn fetch_torrent_details(
 }
 
 #[tauri::command]
-async fn open_properties_window(
-    app: tauri::AppHandle,
-    client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+async fn rpc_get_torrent_details(
     id: i64,
-) -> Result<(), String> {
+    client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+) -> Result<TorrentDetails, String> {
     let mut guard = client_state.lock().await;
     let client = guard.as_mut().ok_or("Not connected")?;
-    let details = fetch_torrent_details(client, id).await?;
-    *PROPERTIES_DATA.lock().unwrap() = Some(details);
+    fetch_torrent_details(client, id).await
+}
+
+#[tauri::command]
+fn open_properties_window(app: tauri::AppHandle, id: i64) -> Result<(), String> {
     *PROPERTIES_ID.lock().unwrap() = Some(id);
-    drop(guard);
 
     if let Some(window) = app.get_webview_window("properties") {
         let _ = window.emit("properties-data", ());
@@ -841,8 +845,8 @@ async fn open_properties_window(
 }
 
 #[tauri::command]
-fn get_properties_data() -> Option<TorrentDetails> {
-    PROPERTIES_DATA.lock().unwrap().take()
+fn get_properties_torrent_id() -> Option<i64> {
+    *PROPERTIES_ID.lock().unwrap()
 }
 
 #[tauri::command]
@@ -861,10 +865,16 @@ async fn rpc_set_files_wanted(
     if !unwanted.is_empty() {
         args = args.files_unwanted(unwanted);
     }
-    client
+    let response = client
         .torrent_set(args, Some(vec![Id::Id(id)]))
         .await
         .map_err(|e| format!("RPC error: {}", e))?;
+    if !response.is_ok() {
+        return Err(format!(
+            "Transmission rejected the request: {}",
+            response.result
+        ));
+    }
     Ok(())
 }
 
@@ -903,10 +913,7 @@ async fn pause_after_metadata_poll(
                 .lock()
                 .await
                 .remove(&id);
-            if *PROPERTIES_ID.lock().unwrap() == Some(id)
-                && let Ok(details) = fetch_torrent_details(client, id).await
-            {
-                *PROPERTIES_DATA.lock().unwrap() = Some(details);
+            if *PROPERTIES_ID.lock().unwrap() == Some(id) {
                 let _ = handle.emit("properties-data", ());
             }
         }
@@ -945,7 +952,8 @@ pub fn run() {
             rpc_queue_move,
             rpc_get_free_space,
             open_properties_window,
-            get_properties_data,
+            get_properties_torrent_id,
+            rpc_get_torrent_details,
             rpc_set_files_wanted,
             update_menu_markers,
         ])
@@ -1095,7 +1103,7 @@ pub fn run() {
                     .iter()
                     .map(|&b| b as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
                     .chain(
-                        [&sort_separator as &dyn tauri::menu::IsMenuItem<tauri::Wry>].into_iter(),
+                        [&sort_separator as &dyn tauri::menu::IsMenuItem<tauri::Wry>],
                     )
                     .chain(
                         sort_dir_buttons

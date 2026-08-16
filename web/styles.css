@@ -241,7 +241,7 @@ body.drag-over::after {
 
 #filter-select:focus,
 #sort-select:focus {
-    border-color: var(--accent);
+    border-color: var(--accent-color);
 }
 
 .sort-asc-label {
@@ -256,7 +256,7 @@ body.drag-over::after {
 }
 
 .sort-asc-label input {
-    accent-color: var(--accent);
+    accent-color: var(--accent-color);
     cursor: pointer;
 }
 

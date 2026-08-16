@@ -74,6 +74,7 @@ function renderDetails(t) {
 }
 
 let currentId = null;
+let loadRevision = 0;
 
 function buildTree(files) {
   const root = { name: '', children: [], size: 0, done: 0, isDir: true };
@@ -154,15 +155,34 @@ function collectLeafIndices(node, out) {
 }
 
 async function setFilesWanted(indices, wanted) {
-  if (!indices.length) return;
+  if (!indices.length) return true;
   const payload = wanted
     ? { id: currentId, wanted: indices, unwanted: [] }
     : { id: currentId, wanted: [], unwanted: indices };
   try {
     await invoke('rpc_set_files_wanted', payload);
+    return true;
   } catch (error) {
     console.error('Failed to update file selection:', error);
+    alert('Failed to update file selection: ' + error);
+    return false;
   }
+}
+
+let fileSelectionUpdating = false;
+
+async function updateFileSelection(indices, wanted, apply) {
+  if (fileSelectionUpdating) return;
+  fileSelectionUpdating = true;
+  document.querySelectorAll('.tree-check').forEach(check => {
+    check.disabled = true;
+  });
+  if (await setFilesWanted(indices, wanted)) {
+    apply();
+    refreshFolderStates(treeRoot);
+  }
+  fileSelectionUpdating = false;
+  renderTree(treeRoot);
 }
 
 const collapsedDirs = new Set();
@@ -210,24 +230,21 @@ function renderNode(parentUl, node, depth, path) {
     if (node.anyWanted && !node.allWanted) {
       check.indeterminate = true;
     }
+    check.disabled = fileSelectionUpdating;
     check.addEventListener('change', () => {
       check.indeterminate = false;
       const indices = collectLeafIndices(node, []);
-      setSubtree(node, check.checked);
-      refreshFolderStates(treeRoot);
-      renderTree(treeRoot);
-      setFilesWanted(indices, check.checked);
+      updateFileSelection(indices, check.checked, () => setSubtree(node, check.checked));
     });
   } else {
     check.checked = node.wanted;
     const fullyDownloaded = node.size > 0 && node.done >= node.size;
-    check.disabled = fullyDownloaded;
+    check.disabled = fullyDownloaded || fileSelectionUpdating;
     check.title = fullyDownloaded ? 'Already downloaded' : '';
     check.addEventListener('change', () => {
-      node.wanted = check.checked;
-      refreshFolderStates(treeRoot);
-      renderTree(treeRoot);
-      setFilesWanted([node.index], node.wanted);
+      updateFileSelection([node.index], check.checked, () => {
+        node.wanted = check.checked;
+      });
     });
   }
 
@@ -293,21 +310,26 @@ function renderFiles(files) {
 }
 
 async function load() {
+  const revision = ++loadRevision;
   applyTheme();
   const message = document.getElementById('properties-message');
   const content = document.getElementById('properties-content');
   try {
-    const data = await invoke('get_properties_data');
-    if (!data) {
+    const id = await invoke('get_properties_torrent_id');
+    if (id == null) {
+      if (revision !== loadRevision) return;
       message.textContent = 'No torrent selected.';
       return;
     }
+    const data = await invoke('rpc_get_torrent_details', { id });
+    if (revision !== loadRevision) return;
     currentId = data.id;
     renderDetails(data);
     renderFiles(data.files || []);
     message.classList.add('hidden');
     content.classList.remove('hidden');
   } catch (error) {
+    if (revision !== loadRevision) return;
     message.textContent = 'Failed to load torrent properties: ' + error;
   }
 }

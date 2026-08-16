@@ -713,8 +713,40 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  function selectTorrentCard(e) {
+    const card = e.target.closest('.torrent-card');
+    if (!card) return;
+    const id = card.dataset.id;
+    const visible = Array.from(document.getElementById('torrent-list').children).map(c => c.dataset.id);
+    const index = visible.indexOf(id);
+
+    if (e.shiftKey) {
+      const anchor = lastSelectedId ? visible.indexOf(lastSelectedId) : -1;
+      const from = anchor >= 0 ? anchor : index;
+      const lo = Math.min(from, index);
+      const hi = Math.max(from, index);
+      selectedIds.clear();
+      for (let i = lo; i <= hi; i++) {
+        selectedIds.add(visible[i]);
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+    } else {
+      selectedIds.clear();
+      selectedIds.add(id);
+    }
+    lastSelectedId = id;
+    applySelection();
+  }
+
   document.getElementById('torrent-list')?.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
     e.preventDefault();
+    selectTorrentCard(e);
   });
 
   document.getElementById('torrent-list')?.addEventListener('contextmenu', (e) => {
@@ -782,36 +814,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     closeSettingsDialog();
     closeConnectionSettings();
     closeDeleteDialog();
-  });
-
-  document.getElementById('torrent-list')?.addEventListener('click', (e) => {
-    const card = e.target.closest('.torrent-card');
-    if (!card) return;
-    const id = card.dataset.id;
-    const visible = Array.from(document.getElementById('torrent-list').children).map(c => c.dataset.id);
-    const index = visible.indexOf(id);
-
-    if (e.shiftKey) {
-      const anchor = lastSelectedId ? visible.indexOf(lastSelectedId) : -1;
-      const from = anchor >= 0 ? anchor : index;
-      const lo = Math.min(from, index);
-      const hi = Math.max(from, index);
-      selectedIds.clear();
-      for (let i = lo; i <= hi; i++) {
-        selectedIds.add(visible[i]);
-      }
-    } else if (e.ctrlKey || e.metaKey) {
-      if (selectedIds.has(id)) {
-        selectedIds.delete(id);
-      } else {
-        selectedIds.add(id);
-      }
-    } else {
-      selectedIds.clear();
-      selectedIds.add(id);
-    }
-    lastSelectedId = id;
-    applySelection();
   });
 
   window.addEventListener('keydown', (e) => {
