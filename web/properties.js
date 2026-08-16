@@ -62,8 +62,13 @@ function renderDetails(t) {
   ];
   dl.innerHTML = rows
     .map(([label, value]) => {
-      const errorClass = label === 'Error' && t.error ? ' error-text' : '';
-      return `<dt>${escapeHtml(label)}</dt><dd class="${errorClass.trim()}">${escapeHtml(value)}</dd>`;
+      const errorRow = label === 'Error' && t.error ? ' error-row' : '';
+      return (
+        `<div class="info-row${errorRow}">` +
+        `<span class="info-label">${escapeHtml(label)}</span>` +
+        `<span class="info-value">${escapeHtml(value)}</span>` +
+        `</div>`
+      );
     })
     .join('');
 }
