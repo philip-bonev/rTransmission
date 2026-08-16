@@ -251,7 +251,7 @@ function applySelection() {
 
 function updateActionButtons() {
   const hasSelection = connected && selectedIds.size > 0;
-  for (const id of ['start-btn', 'pause-btn', 'verify-btn', 'delete-btn']) {
+  for (const id of ['start-btn', 'pause-btn', 'verify-btn', 'properties-btn', 'delete-btn']) {
     document.getElementById(id).disabled = !hasSelection;
   }
   for (const id of ['queue-top-btn', 'queue-up-btn', 'queue-down-btn', 'queue-bottom-btn']) {
@@ -396,14 +396,55 @@ function getDownloadDirOptions() {
   return Array.from(seen.keys());
 }
 
-function populateDownloadDirOptions() {
-  const datalist = document.getElementById('download-dir-options');
-  datalist.innerHTML = '';
-  for (const dir of getDownloadDirOptions()) {
-    const opt = document.createElement('option');
-    opt.value = dir;
-    datalist.appendChild(opt);
+let locationActiveIndex = -1;
+
+function renderLocationOptions() {
+  const container = document.getElementById('location-options');
+  const input = document.getElementById('add-download-dir');
+  const query = input.value.trim().toLowerCase();
+  const dirs = getDownloadDirOptions().filter((d) => !query || d.toLowerCase().includes(query));
+  container.innerHTML = '';
+  dirs.forEach((dir) => {
+    const opt = document.createElement('div');
+    opt.className = 'location-option';
+    opt.textContent = dir;
+    opt.title = dir;
+    opt.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      input.value = dir;
+      closeLocationOptions();
+      updateFreeSpace();
+    });
+    container.appendChild(opt);
+  });
+  locationActiveIndex = -1;
+  return dirs;
+}
+
+function openLocationOptions() {
+  const container = document.getElementById('location-options');
+  if (renderLocationOptions().length > 0) {
+    container.classList.remove('hidden');
+  } else {
+    container.classList.add('hidden');
   }
+}
+
+function closeLocationOptions() {
+  document.getElementById('location-options').classList.add('hidden');
+  locationActiveIndex = -1;
+}
+
+function moveLocationSelection(delta) {
+  const options = document.querySelectorAll('#location-options .location-option');
+  if (options.length === 0) return;
+  locationActiveIndex = (locationActiveIndex + delta + options.length) % options.length;
+  options.forEach((opt, i) => opt.classList.toggle('active', i === locationActiveIndex));
+  options[locationActiveIndex].scrollIntoView({ block: 'nearest' });
+}
+
+function populateDownloadDirOptions() {
+  renderLocationOptions();
 }
 
 function saveLastDownloadDir(dir) {
@@ -449,6 +490,7 @@ async function openAddDialog(title, label, placeholder, browse = false, prefill 
 }
 
 function closeAddDialog() {
+  closeLocationOptions();
   document.getElementById('add-overlay').classList.add('hidden');
 }
 
@@ -604,6 +646,16 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('verify-btn')?.addEventListener('click', () => {
     runTorrentAction('rpc_torrent_action', { action: 'verify', ids: getSelectedIds() });
+  });
+
+  document.getElementById('properties-btn')?.addEventListener('click', async () => {
+    const ids = getSelectedIds();
+    if (ids.length === 0) return;
+    try {
+      await invoke('open_properties_window', { id: ids[0] });
+    } catch (error) {
+      console.error('Failed to open properties:', error);
+    }
   });
 
   document.getElementById('queue-top-btn')?.addEventListener('click', () => {
@@ -834,9 +886,32 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('add-input')?.addEventListener('input', clearAddError);
 
   let freeSpaceTimer = null;
-  document.getElementById('add-download-dir')?.addEventListener('input', () => {
+  const downloadDirInput = document.getElementById('add-download-dir');
+  downloadDirInput?.addEventListener('focus', openLocationOptions);
+  downloadDirInput?.addEventListener('input', () => {
+    openLocationOptions();
     clearTimeout(freeSpaceTimer);
     freeSpaceTimer = setTimeout(updateFreeSpace, 400);
+  });
+  downloadDirInput?.addEventListener('blur', closeLocationOptions);
+  downloadDirInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      moveLocationSelection(1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveLocationSelection(-1);
+    } else if (e.key === 'Enter' && locationActiveIndex >= 0) {
+      e.preventDefault();
+      const active = document.querySelectorAll('#location-options .location-option')[locationActiveIndex];
+      if (active) {
+        downloadDirInput.value = active.textContent;
+        closeLocationOptions();
+        updateFreeSpace();
+      }
+    } else if (e.key === 'Escape') {
+      closeLocationOptions();
+    }
   });
 
   document.getElementById('add-close-btn')?.addEventListener('click', closeAddDialog);

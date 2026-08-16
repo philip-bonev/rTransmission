@@ -51,6 +51,7 @@ impl Default for Settings {
 }
 
 static CLI_FILE: Mutex<Option<String>> = Mutex::new(None);
+static PROPERTIES_DATA: Mutex<Option<TorrentDetails>> = Mutex::new(None);
 
 pub(crate) struct AppState {
     pub settings: Settings,
@@ -77,6 +78,36 @@ pub(crate) struct TorrentInfo {
     pub download_dir: String,
     pub error: bool,
     pub error_string: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub(crate) struct TorrentFile {
+    pub name: String,
+    pub length: i64,
+    pub bytes_completed: i64,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub(crate) struct TorrentDetails {
+    pub id: i64,
+    pub name: String,
+    pub status: String,
+    pub percent_done: f64,
+    pub time_left: i64,
+    pub seeders: i64,
+    pub leechers: i64,
+    pub queue_position: i64,
+    pub added_date: i64,
+    pub last_activity: i64,
+    pub total_size: i64,
+    pub size_when_done: i64,
+    pub uploaded_ever: i64,
+    pub downloaded_ever: i64,
+    pub left_until_done: i64,
+    pub error: bool,
+    pub error_string: String,
+    pub download_dir: String,
+    pub files: Vec<TorrentFile>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -219,6 +250,20 @@ fn torrent_fields() -> Vec<TorrentGetField> {
         TorrentGetField::Error,
         TorrentGetField::ErrorString,
     ]
+}
+
+fn torrent_details_fields() -> Vec<TorrentGetField> {
+    let mut fields = torrent_fields();
+    fields.extend([
+        TorrentGetField::Files,
+        TorrentGetField::FileStats,
+        TorrentGetField::UploadedEver,
+        TorrentGetField::DownloadedEver,
+        TorrentGetField::LeftUntilDone,
+        TorrentGetField::ActivityDate,
+        TorrentGetField::SizeWhenDone,
+    ]);
+    fields
 }
 
 fn map_torrents(torrents: &[Torrent]) -> Vec<TorrentInfo> {
@@ -676,6 +721,85 @@ async fn rpc_get_torrents(
     Ok(map_torrents(&response.arguments.torrents))
 }
 
+#[tauri::command]
+async fn open_properties_window(
+    app: tauri::AppHandle,
+    client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+    id: i64,
+) -> Result<(), String> {
+    let mut guard = client_state.lock().await;
+    let client = guard.as_mut().ok_or("Not connected")?;
+    let response = client
+        .torrent_get(Some(torrent_details_fields()), Some(vec![Id::Id(id)]))
+        .await
+        .map_err(|e| format!("RPC error: {}", e))?;
+    let t = response
+        .arguments
+        .torrents
+        .into_iter()
+        .next()
+        .ok_or("Torrent not found")?;
+    let files = t.files.unwrap_or_default();
+    let stats = t.file_stats.unwrap_or_default();
+    let files: Vec<TorrentFile> = files
+        .iter()
+        .enumerate()
+        .map(|(i, f)| TorrentFile {
+            name: f.name.clone(),
+            length: f.length,
+            bytes_completed: stats
+                .get(i)
+                .map(|s| s.bytes_completed)
+                .unwrap_or(f.bytes_completed),
+        })
+        .collect();
+    *PROPERTIES_DATA.lock().unwrap() = Some(TorrentDetails {
+        id: t.id.unwrap_or(id),
+        name: t.name.clone().unwrap_or_default(),
+        status: t.status.as_ref().map(status_to_string).unwrap_or_default(),
+        percent_done: t.percent_done.unwrap_or(0.0) as f64,
+        time_left: t.eta.unwrap_or(-1),
+        seeders: t.peers_sending_to_us.unwrap_or(0),
+        leechers: t.peers_getting_from_us.unwrap_or(0),
+        queue_position: t.queue_position.unwrap_or(0) as i64,
+        added_date: t.added_date.map(|d| d.timestamp()).unwrap_or(0),
+        last_activity: t.activity_date.map(|d| d.timestamp()).unwrap_or(0),
+        total_size: t.total_size.unwrap_or(0),
+        size_when_done: t.size_when_done.unwrap_or(0),
+        uploaded_ever: t.uploaded_ever.unwrap_or(0),
+        downloaded_ever: t.downloaded_ever.unwrap_or(0) as i64,
+        left_until_done: t.left_until_done.unwrap_or(0),
+        error: t.error_string.is_some() && !t.error_string.as_ref().unwrap().is_empty(),
+        error_string: t.error_string.clone().unwrap_or_default(),
+        download_dir: t.download_dir.clone().unwrap_or_default(),
+        files,
+    });
+    drop(guard);
+
+    if let Some(window) = app.get_webview_window("properties") {
+        let _ = window.emit("properties-data", ());
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    let window = tauri::WebviewWindowBuilder::new(
+        &app,
+        "properties",
+        tauri::WebviewUrl::App("properties.html".into()),
+    )
+    .title("Torrent Properties")
+    .inner_size(760.0, 680.0)
+    .min_inner_size(480.0, 420.0)
+    .build()
+    .map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_properties_data() -> Option<TorrentDetails> {
+    PROPERTIES_DATA.lock().unwrap().take()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cli_file = find_file_in_args(std::env::args().skip(1));
@@ -707,6 +831,8 @@ pub fn run() {
             rpc_torrent_remove,
             rpc_queue_move,
             rpc_get_free_space,
+            open_properties_window,
+            get_properties_data,
             update_menu_markers,
         ])
         .setup(|app| {

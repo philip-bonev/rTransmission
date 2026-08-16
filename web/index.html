@@ -77,14 +77,13 @@
         <path d="M10 11l-2 3h4l-2 3" />
       </svg>
     </button>
-    <button id="alt-speed-btn" class="toolbar-btn" title="Toggle slow/fast speed limits">
+    <button id="properties-btn" class="toolbar-btn" title="Show selected torrent properties" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4.5 14.5a7.5 4.5 0 0 1 15 0z" />
-        <circle cx="19.5" cy="12" r="1.8" />
-        <path d="M3 16.5 5.5 15" />
-        <path d="M7 15.5 5.5 18.5" />
-        <path d="M14.5 15.5 16 18.5" />
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M9 3v18" />
+        <path d="M3 9h6" />
+        <path d="M3 15h6" />
       </svg>
     </button>
     <div class="toolbar-separator"></div>
@@ -138,28 +137,40 @@
       Asc
     </label>
     <div class="toolbar-separator"></div>
-    <button id="settings-btn" class="toolbar-btn" title="Settings">
-      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 21v-7" />
-        <path d="M4 10V3" />
-        <path d="M12 21v-9" />
-        <path d="M12 8V3" />
-        <path d="M20 21v-5" />
-        <path d="M20 12V3" />
-        <path d="M2 14h4" />
-        <path d="M10 8h4" />
-        <path d="M18 16h4" />
-      </svg>
-    </button>
-    <button id="connection-settings-btn" class="toolbar-btn" title="Connection Settings">
-      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round">
-        <path
-          d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    </button>
+    <div id="toolbar-right">
+      <button id="alt-speed-btn" class="toolbar-btn" title="Toggle slow/fast speed limits">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4.5 14.5a7.5 4.5 0 0 1 15 0z" />
+          <circle cx="19.5" cy="12" r="1.8" />
+          <path d="M3 16.5 5.5 15" />
+          <path d="M7 15.5 5.5 18.5" />
+          <path d="M14.5 15.5 16 18.5" />
+        </svg>
+      </button>
+      <button id="settings-btn" class="toolbar-btn" title="Settings">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 21v-7" />
+          <path d="M4 10V3" />
+          <path d="M12 21v-9" />
+          <path d="M12 8V3" />
+          <path d="M20 21v-5" />
+          <path d="M20 12V3" />
+          <path d="M2 14h4" />
+          <path d="M10 8h4" />
+          <path d="M18 16h4" />
+        </svg>
+      </button>
+      <button id="connection-settings-btn" class="toolbar-btn" title="Connection Settings">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+    </div>
   </div>
   <div id="torrent-viewer">
     <div id="torrent-list"></div>
@@ -247,8 +258,10 @@
         </div>
         <div class="form-group">
           <label for="add-download-dir">Download location (optional)</label>
-          <input type="text" id="add-download-dir" list="download-dir-options" placeholder="/path/to/downloads" spellcheck="false" />
-          <datalist id="download-dir-options"></datalist>
+          <div class="location-field">
+            <input type="text" id="add-download-dir" placeholder="/path/to/downloads" spellcheck="false" autocomplete="off" />
+            <div id="location-options" class="location-options hidden"></div>
+          </div>
           <div id="add-free-space" class="dialog-hint hidden"></div>
         </div>
         <div class="dialog-actions">
