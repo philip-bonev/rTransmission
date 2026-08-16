@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -52,6 +52,7 @@ impl Default for Settings {
 
 static CLI_FILE: Mutex<Option<String>> = Mutex::new(None);
 static PROPERTIES_DATA: Mutex<Option<TorrentDetails>> = Mutex::new(None);
+static PROPERTIES_ID: Mutex<Option<i64>> = Mutex::new(None);
 
 pub(crate) struct AppState {
     pub settings: Settings,
@@ -250,6 +251,7 @@ fn torrent_fields() -> Vec<TorrentGetField> {
         TorrentGetField::DownloadDir,
         TorrentGetField::Error,
         TorrentGetField::ErrorString,
+        TorrentGetField::MetadataPercentComplete,
     ]
 }
 
@@ -417,10 +419,26 @@ fn validate_torrent_input(input: String) -> Result<(), String> {
 async fn rpc_add_torrent(
     input: String,
     download_dir: Option<String>,
+    pause_after_metadata: bool,
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+    pause_set_state: State<'_, tokio::sync::Mutex<HashSet<i64>>>,
 ) -> Result<String, String> {
     let mut guard = client_state.lock().await;
     let client = guard.as_mut().ok_or("Not connected")?;
+
+    let is_magnet = if input.starts_with("magnet:") {
+        true
+    } else {
+        std::path::Path::new(&input)
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase() == "magnet")
+            .unwrap_or(false)
+    };
+    let paused = if pause_after_metadata && !is_magnet {
+        Some(true)
+    } else {
+        None
+    };
 
     let add = if input.starts_with("magnet:")
         || input.starts_with("http://")
@@ -429,6 +447,7 @@ async fn rpc_add_torrent(
         TorrentAddArgs {
             filename: Some(input),
             download_dir,
+            paused,
             ..TorrentAddArgs::default()
         }
     } else {
@@ -457,6 +476,7 @@ async fn rpc_add_torrent(
                 TorrentAddArgs {
                     filename: Some(magnet),
                     download_dir,
+                    paused,
                     ..TorrentAddArgs::default()
                 }
             }
@@ -465,6 +485,7 @@ async fn rpc_add_torrent(
                 TorrentAddArgs {
                     metainfo: Some(base64_encode(&bytes)),
                     download_dir,
+                    paused,
                     ..TorrentAddArgs::default()
                 }
             }
@@ -484,6 +505,11 @@ async fn rpc_add_torrent(
     }
     match response.arguments {
         TorrentAddedOrDuplicate::TorrentAdded(t) => {
+            if pause_after_metadata && is_magnet
+                && let Some(id) = t.id
+            {
+                pause_set_state.lock().await.insert(id);
+            }
             Ok(format!("Added torrent: {}", t.name.unwrap_or_default()))
         }
         TorrentAddedOrDuplicate::TorrentDuplicate(t) => Err(format!(
@@ -722,24 +748,7 @@ async fn rpc_get_torrents(
     Ok(map_torrents(&response.arguments.torrents))
 }
 
-#[tauri::command]
-async fn open_properties_window(
-    app: tauri::AppHandle,
-    client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
-    id: i64,
-) -> Result<(), String> {
-    let mut guard = client_state.lock().await;
-    let client = guard.as_mut().ok_or("Not connected")?;
-    let response = client
-        .torrent_get(Some(torrent_details_fields()), Some(vec![Id::Id(id)]))
-        .await
-        .map_err(|e| format!("RPC error: {}", e))?;
-    let t = response
-        .arguments
-        .torrents
-        .into_iter()
-        .next()
-        .ok_or("Torrent not found")?;
+fn map_torrent_to_details(t: Torrent, id: i64) -> TorrentDetails {
     let files = t.files.unwrap_or_default();
     let stats = t.file_stats.unwrap_or_default();
     let files: Vec<TorrentFile> = files
@@ -755,7 +764,7 @@ async fn open_properties_window(
             wanted: stats.get(i).map(|s| s.wanted).unwrap_or(true),
         })
         .collect();
-    *PROPERTIES_DATA.lock().unwrap() = Some(TorrentDetails {
+    TorrentDetails {
         id: t.id.unwrap_or(id),
         name: t.name.clone().unwrap_or_default(),
         status: t.status.as_ref().map(status_to_string).unwrap_or_default(),
@@ -775,7 +784,34 @@ async fn open_properties_window(
         error_string: t.error_string.clone().unwrap_or_default(),
         download_dir: t.download_dir.clone().unwrap_or_default(),
         files,
-    });
+    }
+}
+
+async fn fetch_torrent_details(client: &mut TransClient, id: i64) -> Result<TorrentDetails, String> {
+    let response = client
+        .torrent_get(Some(torrent_details_fields()), Some(vec![Id::Id(id)]))
+        .await
+        .map_err(|e| format!("RPC error: {}", e))?;
+    let t = response
+        .arguments
+        .torrents
+        .into_iter()
+        .next()
+        .ok_or("Torrent not found")?;
+    Ok(map_torrent_to_details(t, id))
+}
+
+#[tauri::command]
+async fn open_properties_window(
+    app: tauri::AppHandle,
+    client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+    id: i64,
+) -> Result<(), String> {
+    let mut guard = client_state.lock().await;
+    let client = guard.as_mut().ok_or("Not connected")?;
+    let details = fetch_torrent_details(client, id).await?;
+    *PROPERTIES_DATA.lock().unwrap() = Some(details);
+    *PROPERTIES_ID.lock().unwrap() = Some(id);
     drop(guard);
 
     if let Some(window) = app.get_webview_window("properties") {
@@ -823,6 +859,51 @@ async fn rpc_set_files_wanted(
         .await
         .map_err(|e| format!("RPC error: {}", e))?;
     Ok(())
+}
+
+async fn pause_after_metadata_poll(
+    handle: &tauri::AppHandle,
+    client: &mut TransClient,
+    torrents: &[Torrent],
+) {
+    let pending: Vec<i64> = {
+        let set = handle.state::<tokio::sync::Mutex<HashSet<i64>>>();
+        set.lock().await.iter().cloned().collect()
+    };
+    if pending.is_empty() {
+        return;
+    }
+    for id in pending {
+        let metadata_done = torrents
+            .iter()
+            .find(|t| t.id == Some(id))
+            .map(|t| match t.metadata_percent_complete {
+                Some(p) => p >= 1.0,
+                None => {
+                    t.total_size.unwrap_or(0) > 0
+                        || t.files.as_ref().map(|f| !f.is_empty()).unwrap_or(false)
+                }
+            })
+            .unwrap_or(false);
+        if metadata_done
+            && client
+                .torrent_action(TorrentAction::Stop, vec![Id::Id(id)])
+                .await
+                .is_ok()
+        {
+            handle
+                .state::<tokio::sync::Mutex<HashSet<i64>>>()
+                .lock()
+                .await
+                .remove(&id);
+            if *PROPERTIES_ID.lock().unwrap() == Some(id)
+                && let Ok(details) = fetch_torrent_details(client, id).await
+            {
+                *PROPERTIES_DATA.lock().unwrap() = Some(details);
+                let _ = handle.emit("properties-data", ());
+            }
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -891,6 +972,7 @@ pub fn run() {
             }));
             app.manage(tokio::sync::Mutex::new(None::<TransClient>));
             app.manage(tokio::sync::Mutex::new(None::<RawRpc>));
+            app.manage(tokio::sync::Mutex::new(HashSet::<i64>::new()));
 
             {
                 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -1141,6 +1223,12 @@ pub fn run() {
                                 Ok(response) => {
                                     let torrents = map_torrents(&response.arguments.torrents);
                                     let _ = handle.emit("torrents-update", &torrents);
+                                    pause_after_metadata_poll(
+                                        &handle,
+                                        &mut *client,
+                                        &response.arguments.torrents,
+                                    )
+                                    .await;
                                 }
                                 Err(e) => {
                                     log::error!("RPC poll error: {}", e);

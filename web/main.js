@@ -335,7 +335,7 @@ function reportAddError(message) {
   }
 }
 
-async function addTorrent(input, downloadDir = null) {
+async function addTorrent(input, downloadDir = null, pauseAfterMetadata = false) {
   if (!connected) {
     reportAddError('Connect to a Transmission daemon first');
     return false;
@@ -347,7 +347,7 @@ async function addTorrent(input, downloadDir = null) {
     return false;
   }
   try {
-    await invoke('rpc_add_torrent', { input, downloadDir });
+    await invoke('rpc_add_torrent', { input, downloadDir, pauseAfterMetadata });
     return true;
   } catch (error) {
     reportAddError(String(error || 'Failed to add torrent'));
@@ -929,7 +929,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     clearAddError();
     const downloadDir = document.getElementById('add-download-dir').value.trim() || null;
     if (downloadDir) saveLastDownloadDir(downloadDir);
-    const ok = await addTorrent(value, downloadDir);
+    const pauseAfterMetadata = document.getElementById('add-pause-after-metadata').checked;
+    const ok = await addTorrent(value, downloadDir, pauseAfterMetadata);
     if (ok) closeAddDialog();
   });
 
