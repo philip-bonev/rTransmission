@@ -213,7 +213,12 @@ fn mark_active(items: &HashMap<String, (tauri::menu::MenuItem<tauri::Wry>, Strin
 }
 
 #[tauri::command]
-fn update_menu_markers(state: State<Mutex<AppState>>, sort: String, sort_dir: String, filter: String) {
+fn update_menu_markers(
+    state: State<Mutex<AppState>>,
+    sort: String,
+    sort_dir: String,
+    filter: String,
+) {
     let state = state.inner().lock().unwrap();
     mark_active(&state.sort_menu_items, &sort);
     mark_active(&state.sort_dir_menu_items, &sort_dir);
@@ -229,7 +234,6 @@ fn status_to_string(status: &TorrentStatus) -> String {
         TorrentStatus::QueuedToSeed => "Waiting to seed",
         TorrentStatus::Seeding => "Seeding",
         TorrentStatus::Verifying => "Checking",
-        _ => "Unknown",
     }
     .to_string()
 }
@@ -338,7 +342,8 @@ fn load_settings(path: &PathBuf) -> Settings {
         .unwrap_or_default();
     if let Some(password) = keyring_get_password() {
         settings.rpc_password = password;
-    } else if !settings.rpc_password.is_empty() && keyring_set_password(&settings.rpc_password).is_ok()
+    } else if !settings.rpc_password.is_empty()
+        && keyring_set_password(&settings.rpc_password).is_ok()
     {
         let mut stripped = settings.clone();
         stripped.rpc_password = String::new();
@@ -380,9 +385,7 @@ fn save_settings(path: &PathBuf, settings: &Settings) -> Result<(), String> {
 
 #[tauri::command]
 fn validate_torrent_input(input: String) -> Result<(), String> {
-    if input.starts_with("magnet:")
-        || input.starts_with("http://")
-        || input.starts_with("https://")
+    if input.starts_with("magnet:") || input.starts_with("http://") || input.starts_with("https://")
     {
         return Ok(());
     }
@@ -505,7 +508,8 @@ async fn rpc_add_torrent(
     }
     match response.arguments {
         TorrentAddedOrDuplicate::TorrentAdded(t) => {
-            if pause_after_metadata && is_magnet
+            if pause_after_metadata
+                && is_magnet
                 && let Some(id) = t.id
             {
                 pause_set_state.lock().await.insert(id);
@@ -787,7 +791,10 @@ fn map_torrent_to_details(t: Torrent, id: i64) -> TorrentDetails {
     }
 }
 
-async fn fetch_torrent_details(client: &mut TransClient, id: i64) -> Result<TorrentDetails, String> {
+async fn fetch_torrent_details(
+    client: &mut TransClient,
+    id: i64,
+) -> Result<TorrentDetails, String> {
     let response = client
         .torrent_get(Some(torrent_details_fields()), Some(vec![Id::Id(id)]))
         .await
@@ -1088,8 +1095,7 @@ pub fn run() {
                     .iter()
                     .map(|&b| b as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
                     .chain(
-                        [&sort_separator as &dyn tauri::menu::IsMenuItem<tauri::Wry>]
-                            .into_iter(),
+                        [&sort_separator as &dyn tauri::menu::IsMenuItem<tauri::Wry>].into_iter(),
                     )
                     .chain(
                         sort_dir_buttons
@@ -1185,8 +1191,8 @@ pub fn run() {
                         "verify" => {
                             let _ = app_handle.emit("menu-verify", ());
                         }
-                        "sort-queue" | "sort-date" | "sort-size" | "sort-name"
-                        | "sort-seeders" | "sort-leechers" => {
+                        "sort-queue" | "sort-date" | "sort-size" | "sort-name" | "sort-seeders"
+                        | "sort-leechers" => {
                             let key = id.trim_start_matches("sort-").to_string();
                             let state = app_handle.state::<Mutex<AppState>>();
                             mark_active(&state.inner().lock().unwrap().sort_menu_items, &key);
