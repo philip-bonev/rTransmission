@@ -10,7 +10,7 @@ use tauri::State;
 use transmission_rpc::TransClient;
 use transmission_rpc::types::{
     BasicAuth, Id, Torrent, TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate,
-    TorrentGetField, TorrentStatus,
+    TorrentGetField, TorrentSetArgs, TorrentStatus,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -85,6 +85,7 @@ pub(crate) struct TorrentFile {
     pub name: String,
     pub length: i64,
     pub bytes_completed: i64,
+    pub wanted: bool,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -751,6 +752,7 @@ async fn open_properties_window(
                 .get(i)
                 .map(|s| s.bytes_completed)
                 .unwrap_or(f.bytes_completed),
+            wanted: stats.get(i).map(|s| s.wanted).unwrap_or(true),
         })
         .collect();
     *PROPERTIES_DATA.lock().unwrap() = Some(TorrentDetails {
@@ -800,6 +802,29 @@ fn get_properties_data() -> Option<TorrentDetails> {
     PROPERTIES_DATA.lock().unwrap().take()
 }
 
+#[tauri::command]
+async fn rpc_set_files_wanted(
+    client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+    id: i64,
+    wanted: Vec<usize>,
+    unwanted: Vec<usize>,
+) -> Result<(), String> {
+    let mut guard = client_state.lock().await;
+    let client = guard.as_mut().ok_or("Not connected")?;
+    let mut args = TorrentSetArgs::new();
+    if !wanted.is_empty() {
+        args = args.files_wanted(wanted);
+    }
+    if !unwanted.is_empty() {
+        args = args.files_unwanted(unwanted);
+    }
+    client
+        .torrent_set(args, Some(vec![Id::Id(id)]))
+        .await
+        .map_err(|e| format!("RPC error: {}", e))?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cli_file = find_file_in_args(std::env::args().skip(1));
@@ -833,6 +858,7 @@ pub fn run() {
             rpc_get_free_space,
             open_properties_window,
             get_properties_data,
+            rpc_set_files_wanted,
             update_menu_markers,
         ])
         .setup(|app| {

@@ -118,6 +118,21 @@
       text-align: center;
     }
 
+    .tree-check {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--accent-color);
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+    }
+
+    .tree-check:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
     .tree-dir > .tree-row {
       font-weight: 600;
     }

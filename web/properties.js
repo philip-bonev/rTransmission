@@ -73,16 +73,27 @@ function renderDetails(t) {
     .join('');
 }
 
+let currentId = null;
+
 function buildTree(files) {
   const root = { name: '', children: [], size: 0, done: 0, isDir: true };
-  for (const f of files) {
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
     const parts = f.name.split('/').filter(Boolean);
     let node = root;
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-      const isLeaf = i === parts.length - 1;
+    for (let j = 0; j < parts.length; j++) {
+      const part = parts[j];
+      const isLeaf = j === parts.length - 1;
       if (isLeaf) {
-        const leaf = { name: part, children: [], size: f.length, done: f.bytes_completed, isDir: false };
+        const leaf = {
+          name: part,
+          children: [],
+          size: f.length,
+          done: f.bytes_completed,
+          wanted: !!f.wanted,
+          index: i,
+          isDir: false,
+        };
         node.children.push(leaf);
         node = leaf;
       } else {
@@ -96,6 +107,7 @@ function buildTree(files) {
     }
   }
   aggregateSizes(root);
+  refreshFolderStates(root);
   return root;
 }
 
@@ -112,7 +124,50 @@ function aggregateSizes(node) {
   node.done = done;
 }
 
-function renderNode(parentUl, node, depth) {
+function refreshFolderStates(node) {
+  if (!node.isDir) return;
+  let any = false;
+  let all = true;
+  for (const c of node.children) {
+    if (c.isDir) {
+      refreshFolderStates(c);
+      all = all && c.allWanted;
+      any = any || c.anyWanted;
+    } else {
+      all = all && c.wanted;
+      any = any || c.wanted;
+    }
+  }
+  node.allWanted = all;
+  node.anyWanted = any;
+}
+
+function collectLeafIndices(node, out) {
+  for (const c of node.children) {
+    if (c.isDir) {
+      collectLeafIndices(c, out);
+    } else {
+      out.push(c.index);
+    }
+  }
+  return out;
+}
+
+async function setFilesWanted(indices, wanted) {
+  if (!indices.length) return;
+  const payload = wanted
+    ? { id: currentId, wanted: indices, unwanted: [] }
+    : { id: currentId, wanted: [], unwanted: indices };
+  try {
+    await invoke('rpc_set_files_wanted', payload);
+  } catch (error) {
+    console.error('Failed to update file selection:', error);
+  }
+}
+
+const collapsedDirs = new Set();
+
+function renderNode(parentUl, node, depth, path) {
   const li = document.createElement('li');
   li.className = node.isDir ? 'tree-dir' : '';
 
@@ -123,6 +178,11 @@ function renderNode(parentUl, node, depth) {
   const toggle = document.createElement('span');
   toggle.className = 'tree-toggle';
   toggle.textContent = node.isDir ? '▶' : '';
+  const nodePath = path ? path + '/' + node.name : node.name;
+
+  const check = document.createElement('input');
+  check.type = 'checkbox';
+  check.className = 'tree-check';
 
   const name = document.createElement('span');
   name.className = 'tree-name';
@@ -139,19 +199,58 @@ function renderNode(parentUl, node, depth) {
   pct.textContent = formatPercent(fraction);
 
   row.appendChild(toggle);
+  row.appendChild(check);
   row.appendChild(name);
   row.appendChild(size);
   row.appendChild(pct);
   li.appendChild(row);
 
   if (node.isDir) {
+    check.checked = node.allWanted;
+    if (node.anyWanted && !node.allWanted) {
+      check.indeterminate = true;
+    }
+    check.addEventListener('change', () => {
+      check.indeterminate = false;
+      const indices = collectLeafIndices(node, []);
+      setSubtree(node, check.checked);
+      refreshFolderStates(treeRoot);
+      renderTree(treeRoot);
+      setFilesWanted(indices, check.checked);
+    });
+  } else {
+    check.checked = node.wanted;
+    const fullyDownloaded = node.size > 0 && node.done >= node.size;
+    check.disabled = fullyDownloaded;
+    check.title = fullyDownloaded ? 'Already downloaded' : '';
+    check.addEventListener('change', () => {
+      node.wanted = check.checked;
+      refreshFolderStates(treeRoot);
+      renderTree(treeRoot);
+      setFilesWanted([node.index], node.wanted);
+    });
+  }
+
+  if (node.isDir) {
     const childrenUl = document.createElement('ul');
     childrenUl.className = 'tree-children';
-    node.children.forEach(child => renderNode(childrenUl, child, depth + 1));
+    const isCollapsed = collapsedDirs.has(nodePath);
+    if (isCollapsed) {
+      childrenUl.classList.add('collapsed');
+      toggle.textContent = '▶';
+    } else {
+      toggle.textContent = '▼';
+    }
+    node.children.forEach(child => renderNode(childrenUl, child, depth + 1, nodePath));
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
-      const collapsed = childrenUl.classList.toggle('collapsed');
-      toggle.textContent = collapsed ? '▶' : '▼';
+      const nowCollapsed = childrenUl.classList.toggle('collapsed');
+      toggle.textContent = nowCollapsed ? '▶' : '▼';
+      if (nowCollapsed) {
+        collapsedDirs.add(nodePath);
+      } else {
+        collapsedDirs.delete(nodePath);
+      }
     });
     const wrap = document.createElement('div');
     wrap.appendChild(childrenUl);
@@ -161,6 +260,27 @@ function renderNode(parentUl, node, depth) {
   parentUl.appendChild(li);
 }
 
+function setSubtree(node, wanted) {
+  for (const c of node.children) {
+    if (c.isDir) {
+      setSubtree(c, wanted);
+    } else {
+      c.wanted = wanted;
+    }
+  }
+}
+
+let treeRoot = null;
+
+function renderTree(root) {
+  const container = document.getElementById('properties-files');
+  container.innerHTML = '';
+  const ul = document.createElement('ul');
+  ul.className = 'tree';
+  root.children.forEach(child => renderNode(ul, child, 0, ''));
+  container.appendChild(ul);
+}
+
 function renderFiles(files) {
   const container = document.getElementById('properties-files');
   container.innerHTML = '';
@@ -168,11 +288,8 @@ function renderFiles(files) {
     container.textContent = 'No file information available.';
     return;
   }
-  const root = buildTree(files);
-  const ul = document.createElement('ul');
-  ul.className = 'tree';
-  root.children.forEach(child => renderNode(ul, child, 0));
-  container.appendChild(ul);
+  treeRoot = buildTree(files);
+  renderTree(treeRoot);
 }
 
 async function load() {
@@ -185,6 +302,7 @@ async function load() {
       message.textContent = 'No torrent selected.';
       return;
     }
+    currentId = data.id;
     renderDetails(data);
     renderFiles(data.files || []);
     message.classList.add('hidden');
