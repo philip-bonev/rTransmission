@@ -230,7 +230,9 @@ function renderNode(parentUl, node, depth, path) {
     if (node.anyWanted && !node.allWanted) {
       check.indeterminate = true;
     }
-    check.disabled = fileSelectionUpdating;
+    const dirFullyDownloaded = node.size > 0 && node.done >= node.size;
+    check.disabled = dirFullyDownloaded || fileSelectionUpdating;
+    check.title = dirFullyDownloaded ? 'Already downloaded' : '';
     check.addEventListener('change', () => {
       check.indeterminate = false;
       const indices = collectLeafIndices(node, []);
