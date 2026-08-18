@@ -348,5 +348,24 @@ async function load() {
   }
 }
 
+function initTabs() {
+  const tabs = document.querySelectorAll('.properties-tab');
+  const panels = {
+    details: document.getElementById('properties-top-panel'),
+    files: document.getElementById('properties-bottom-panel'),
+  };
+  tabs.forEach(tab => {
+    tab.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      tabs.forEach(t => t.classList.toggle('active', t === tab));
+      for (const [name, panel] of Object.entries(panels)) {
+        panel.classList.toggle('hidden-tab', name !== tab.dataset.tab);
+      }
+    });
+  });
+}
+
+initTabs();
+
 listen('properties-data', load).catch(() => {});
 load();

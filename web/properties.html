@@ -33,13 +33,50 @@
       overflow: hidden;
     }
 
-    #properties-top-panel {
-      flex: 0 0 380px;
+    .properties-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      flex: 0 0 auto;
     }
 
+    .properties-tab {
+      flex: 1;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background-color: transparent;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      font-family: inherit;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .properties-tab:hover {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .properties-tab.active {
+      background-color: var(--bg-primary);
+      color: var(--accent-color);
+    }
+
+    #properties-top-panel,
     #properties-bottom-panel {
-      flex: 1 0 auto;
+      flex: 1 1 auto;
       min-height: 0;
+    }
+
+    .properties-panel.hidden-tab {
+      display: none;
     }
 
     .panel-header {
@@ -197,11 +234,15 @@
   <div id="properties-root">
     <div id="properties-message">Loading…</div>
     <div id="properties-content" class="hidden">
-      <div id="properties-top-panel" class="properties-panel">
+      <div class="properties-tabs">
+        <button type="button" class="properties-tab active" data-tab="details">Details</button>
+        <button type="button" class="properties-tab" data-tab="files">Files</button>
+      </div>
+      <div id="properties-top-panel" class="properties-panel" data-panel="details">
         <div class="panel-header">Torrent details</div>
         <dl id="properties-info"></dl>
       </div>
-      <div id="properties-bottom-panel" class="properties-panel">
+      <div id="properties-bottom-panel" class="properties-panel hidden-tab" data-panel="files">
         <div class="panel-header">Files</div>
         <div id="properties-files"></div>
       </div>
