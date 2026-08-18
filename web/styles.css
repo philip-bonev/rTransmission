@@ -509,7 +509,8 @@ body.drag-over::after {
 
 .form-group input[type="text"],
 .form-group input[type="number"],
-.form-group input[type="password"] {
+.form-group input[type="password"],
+.form-group select {
     width: 100%;
     padding: 8px 10px;
     background-color: var(--bg-primary);

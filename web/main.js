@@ -264,7 +264,7 @@ async function getSettings() {
     return await invoke('get_settings');
   } catch (error) {
     console.error('Failed to get settings:', error);
-    return { rpc_host: 'localhost', rpc_port: 9091, rpc_auth: false, rpc_username: '', rpc_password: '', rpc_https: false, rpc_insecure: false, auto_connect: true };
+    return { rpc_host: 'localhost', rpc_port: 9091, rpc_auth: false, rpc_username: '', rpc_password: '', rpc_https: false, rpc_insecure: false, auto_connect: true, theme: 'auto' };
   }
 }
 
@@ -276,8 +276,17 @@ async function setSettings(settings) {
   }
 }
 
-async function applySystemTheme() {
-  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+let currentTheme = 'auto';
+
+function applyTheme(theme) {
+  let dark;
+  if (theme === 'dark') {
+    dark = true;
+  } else if (theme === 'light') {
+    dark = false;
+  } else {
+    dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 }
 
@@ -497,6 +506,7 @@ function closeAddDialog() {
 function openSettingsDialog() {
   getSettings().then(settings => {
     document.getElementById('default-download-dir').value = settings.default_download_dir || '';
+    document.getElementById('theme-select').value = settings.theme || 'auto';
     document.getElementById('settings-overlay').classList.remove('hidden');
   });
 }
@@ -585,8 +595,11 @@ function toggleAuthFields() {
 
 window.addEventListener('DOMContentLoaded', async () => {
   const settings = await getSettings();
-  applySystemTheme();
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySystemTheme);
+  currentTheme = settings.theme || 'auto';
+  applyTheme(currentTheme);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    applyTheme(currentTheme);
+  });
 
   document.getElementById('connect-btn')?.addEventListener('click', () => connect());
   document.getElementById('disconnect-btn')?.addEventListener('click', disconnect);
@@ -850,7 +863,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     const current = await getSettings();
     current.default_download_dir =
       document.getElementById('default-download-dir').value.trim() || null;
+    current.theme = document.getElementById('theme-select').value;
     await setSettings(current);
+    currentTheme = current.theme;
+    applyTheme(currentTheme);
     closeSettingsDialog();
   });
 

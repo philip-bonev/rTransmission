@@ -13,6 +13,15 @@ use transmission_rpc::types::{
     TorrentGetField, TorrentSetArgs, TorrentStatus,
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum Theme {
+    #[default]
+    Auto,
+    Light,
+    Dark,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct Settings {
     pub rpc_host: String,
@@ -28,6 +37,8 @@ pub(crate) struct Settings {
     pub auto_connect: bool,
     #[serde(default)]
     pub default_download_dir: Option<String>,
+    #[serde(default)]
+    pub theme: Theme,
 }
 
 fn default_auto_connect() -> bool {
@@ -46,6 +57,7 @@ impl Default for Settings {
             rpc_insecure: false,
             auto_connect: true,
             default_download_dir: None,
+            theme: Theme::Auto,
         }
     }
 }

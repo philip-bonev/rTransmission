@@ -1,8 +1,20 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
-function applyTheme() {
-  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+async function applyTheme() {
+  let theme = 'auto';
+  try {
+    const settings = await invoke('get_settings');
+    theme = settings.theme || 'auto';
+  } catch {}
+  let dark;
+  if (theme === 'dark') {
+    dark = true;
+  } else if (theme === 'light') {
+    dark = false;
+  } else {
+    dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 }
 
@@ -313,7 +325,7 @@ function renderFiles(files) {
 
 async function load() {
   const revision = ++loadRevision;
-  applyTheme();
+  await applyTheme();
   const message = document.getElementById('properties-message');
   const content = document.getElementById('properties-content');
   try {
