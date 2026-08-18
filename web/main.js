@@ -834,7 +834,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('connection-settings-btn')?.addEventListener('click', openConnectionSettings);
   document.getElementById('connection-settings-close-btn')?.addEventListener('click', closeConnectionSettings);
   document.getElementById('connection-settings-cancel-btn')?.addEventListener('click', closeConnectionSettings);
-  document.getElementById('connection-settings-overlay')?.addEventListener('click', (e) => {
+  document.getElementById('connection-settings-overlay')?.addEventListener('mousedown', (e) => {
     if (e.target === e.currentTarget) closeConnectionSettings();
   });
   document.getElementById('rpc-auth')?.addEventListener('change', toggleAuthFields);
@@ -842,7 +842,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('settings-btn')?.addEventListener('click', openSettingsDialog);
   document.getElementById('settings-close-btn')?.addEventListener('click', closeSettingsDialog);
   document.getElementById('settings-cancel-btn')?.addEventListener('click', closeSettingsDialog);
-  document.getElementById('settings-overlay')?.addEventListener('click', (e) => {
+  document.getElementById('settings-overlay')?.addEventListener('mousedown', (e) => {
     if (e.target === e.currentTarget) closeSettingsDialog();
   });
   document.getElementById('settings-form')?.addEventListener('submit', async (e) => {
@@ -918,7 +918,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('add-close-btn')?.addEventListener('click', closeAddDialog);
   document.getElementById('add-cancel-btn')?.addEventListener('click', closeAddDialog);
-  document.getElementById('add-overlay')?.addEventListener('click', (e) => {
+  document.getElementById('add-overlay')?.addEventListener('mousedown', (e) => {
     if (e.target === e.currentTarget) closeAddDialog();
   });
   document.getElementById('add-form')?.addEventListener('submit', async (e) => {
@@ -938,7 +938,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('delete-close-btn')?.addEventListener('click', closeDeleteDialog);
   document.getElementById('delete-cancel-btn')?.addEventListener('click', closeDeleteDialog);
-  document.getElementById('delete-overlay')?.addEventListener('click', (e) => {
+  document.getElementById('delete-overlay')?.addEventListener('mousedown', (e) => {
     if (e.target === e.currentTarget) closeDeleteDialog();
   });
   document.getElementById('delete-form')?.addEventListener('submit', async (e) => {
