@@ -29,6 +29,7 @@
 - **Async Rust:** Use async tasks where appropriate to ensure the Tauri main/UI thread never freezes during RPC calls.
 - **State Management:** Manage the Transmission RPC client instance globally using Tauri's `tauri::State`.
 - **Style:** Use space not tabs. 4 spaces eqauls tab.
+- **WebKit Bug:** In some cases on MacOS Webkit sends click event. For example on selection. In this case mousedown should be used.
 
 ## 6. Constraints & Restrictions
 - **Dependencies:** DO NOT add new Rust crates or JS packages unless explicitly requested.
