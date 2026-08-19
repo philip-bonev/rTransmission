@@ -1,38 +1,44 @@
-# Project Context & Rules: Tauri Transmission Client
+# Project Context & Rules: rTransmission Client
 
 ## 1. System Prompt & Role
-- **Role:** You are an expert software engineer specializing in Rust, Tauri, and frontend development. Provide clean, secure, and idiomatic code.
-- **Communication Language:** ALWAYS respond, explain your thought process, and summarize code changes.
-- **Code Language:** Write all code, variables, functions, documentation, and comments strictly.
+- **Role:** Expert software engineer specializing in Rust, Tauri, and frontend development. Provide clean, secure, idiomatic code.
+- **Communication Language:** Always respond in Bulgarian unless asked otherwise; explain thought process and summarize code changes.
+- **Code Language:** Rust backend in `/src`, vanilla HTML/CSS/JS frontend in `/web` (no framework, no build step).
 
 ## 2. Tech Stack & Architecture
-- **Framework:** Tauri (Rust backend + Web frontend)
-- **Backend (Rust):** Located in `/src`. Uses `transmission-rpc` crate to communicate with the Transmission daemon.
-- **Frontend (Web):** Located in `/web` (HTML/JS UI). Communicates with Rust via Tauri invokes.
-- **Configuration:** `Cargo.toml` (Rust dependencies), `tauri.conf.json` (Tauri core settings).
-- **Platform:** This app is multiplatform Windows, Linux and MacOS.
+- **Framework:** Tauri v2 (Rust backend + WebView frontend). Rust edition 2024.
+- **Backend:** `/src/lib.rs` (single file, ~1340 lines). Talks to a Transmission daemon via the `transmission-rpc` crate; low-level HTTP via `reqwest` (rustls). `src/main.rs` just calls `lib::run()`.
+- **Frontend:** static files in `/web`, served as `frontendDist: "web"`. There is NO npm/package.json — do not run `npm install`; edit files directly.
+- **Windows:** `main` (defined in `tauri.conf.json`) plus a `properties` window created on demand in `open_properties_window` (`src/lib.rs:839`) pointing at `properties.html`.
+- **Config:** `tauri.conf.json`, `capabilities/default.json`, `Cargo.toml`.
+- **Plugins:** opener, dialog, fs, window-state, single-instance, deep-link (magnet scheme), log.
+- **Platform:** Windows, Linux, macOS.
 
-## 3. Core Features & Logic
-- **Transmission RPC:** All torrent actions (add, pause, remove, list) must go through the `transmission-rpc` client implemented in the Rust backend.
-- **Drag and Drop:** The app accepts file/link drops. Handle drops either via Tauri's window event listeners or HTML5 Drag and Drop API in `/web`.
-- **Input Parsing:** The application parses and handles two types of inputs seamlessly: URLs (HTTP/HTTPS torrent files) and magnet links (`magnet:?xt=...`).
+## 3. Architecture & Data Flow (important)
+- **Settings:** stored as JSON at `~/.rtransmission/config.json` (cross-platform via HOME/USERPROFILE). Loaded in `.setup()` into `AppState.settings`. The RPC password is base64-encoded on disk (deliberately NOT keyring — treat as obfuscation, never log it).
+- **State (`tauri::State`):** `AppState` (settings + settings_path + menu item maps), `Mutex<Option<TransClient>>` for the RPC client, `Mutex<HashSet<i64>>` for pause-after-metadata torrents. Static globals: `CLI_FILE`, `PROPERTIES_ID`.
+- **Settings fields:** `rpc_host`, `rpc_port`, `rpc_auth`, `rpc_username`, `rpc_password`, `rpc_https`, `rpc_insecure`, `auto_connect`, `default_download_dir`, `theme` (`auto`/`light`/`dark`). New fields MUST have `#[serde(default)]` for backward compatibility.
+- **Event flow (Rust emits, JS `listen()`s):** `torrents-update`, `session-stats-update`, `alt-speed-update`, `file-opened`, `properties-data`, `menu-*` (connection-settings, add-url, add-magnet, add-file, play, pause, delete, verify, sort, sort-dir, filter).
+- **Tauri commands (in `generate_handler`):** `rpc_*` passthrough commands call the Transmission daemon; `get_settings`/`set_settings` manage config; `get_cli_file`, `validate_torrent_input`, `open_properties_window`, `get_properties_torrent_id`, `update_menu_markers`.
+- **Invoke arg naming:** JS passes camelCase keys (e.g. `newSettings`), Rust receives snake_case (`new_settings`) — Tauri maps automatically.
+- **Inputs handled:** HTTP/HTTPS torrent URLs, `magnet:` links, `.torrent`/`.magnet` files (file associations + CLI arg + single-instance re-open + deep-link). All flows go through the add dialog (`openAddDialog`).
 
 ## 4. Project Commands
-- **Install Frontend Deps:** `npm install` (or yarn/pnpm if applicable)
 - **Run Dev Mode:** `cargo tauri dev`
-- **Build Production:** `cargo tauri build`
+- **Build Production:** `cargo tauri build` (bundle appears under `target/release/bundle/`)
 - **Lint Rust:** `cargo clippy`
 - **Format Rust:** `cargo fmt`
+- **macOS install after build:** `ditto "target/release/bundle/macos/rTransmission Client.app" "/Applications/rTransmission Client.app"`
+- **Verify JS:** `node --check web/<file>.js`
+- **Version:** bump BOTH `Cargo.toml` and `tauri.conf.json` `version`.
 
 ## 5. Coding Conventions & Safety
-- **Tauri Commands:** Always write Rust commands with proper error handling. Return `Result<T, E>` where `E` is a string or a serializable error type so the frontend can catch it.
-- **Async Rust:** Use async tasks where appropriate to ensure the Tauri main/UI thread never freezes during RPC calls.
-- **State Management:** Manage the Transmission RPC client instance globally using Tauri's `tauri::State`.
-- **Style:** Use space not tabs. 4 spaces eqauls tab.
-- **WebKit Bug:** In some cases on MacOS Webkit sends click event. For example on selection. In this case mousedown should be used.
+- **Tauri commands:** return `Result<T, String>` with human-readable errors so the frontend can `alert()`/display them. RPC commands are `async` and take `State<'_, tokio::sync::Mutex<Option<TransClient>>>`; never block the UI thread.
+- **Style:** spaces only, 4 spaces = 1 tab. Match surrounding code; no decorative comments.
+- **WebKit Bug (macOS):** WKWebView can fire spurious `click` events, e.g. when a drag-select ends on a different element. Use `mousedown` for dismiss/tab/single-press UI (overlay backdrops, properties tabs) and avoid relying on `click` for anything near selectable text. Checkboxes use `change`.
+- **Properties file tree:** rebuild from fetched data each load; disable checkboxes (files AND dirs) once fully downloaded (`done >= size`); guard updates with `fileSelectionUpdating` to prevent races.
+- **No new Rust crates or JS packages** unless explicitly requested.
+- **Security:** never hardcode or log credentials; password must never be written in plaintext to config (base64 only).
 
-## 6. Constraints & Restrictions
-- **Dependencies:** DO NOT add new Rust crates or JS packages unless explicitly requested.
-- **Security:** Ensure that RPC credentials (host, port, username, password) are handled securely and not hardcoded.
-- **Scoping:** Keep frontend logic in `/web` and system/RPC logic in `/src`. Do not mix concerns.
-
+## 6. Scoping
+- Frontend logic/UI in `/web`, system/RPC logic in `/src`. Do not mix concerns.
