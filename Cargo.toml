@@ -3,8 +3,8 @@ name = "rtransmission-client"
 version = "1.0.10"
 description = "rTransmission Client"
 authors = ["Philip Bonev"]
-license = "GPL v2"
-repository = ""
+license = "Apache 2.0"
+repository = "https://github.com/philip-bonev/rTransmission.git"
 edition = "2024"
 
 [lib]
