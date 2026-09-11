@@ -518,33 +518,35 @@ function closeAddDialog() {
   document.getElementById('add-overlay').classList.add('hidden');
 }
 
+const remoteInputIds = [
+  'session-dl-queue-size', 'session-seed-ratio-limit', 'session-idle-seeding-limit',
+  'session-speed-dl', 'session-speed-ul', 'session-alt-dl', 'session-alt-ul',
+];
+
 function openSettingsDialog() {
   getSettings().then(async (settings) => {
     document.getElementById('default-download-dir').value = settings.default_download_dir || '';
     document.getElementById('theme-select').value = settings.theme || 'auto';
+    remoteInputIds.forEach(id => {
+      document.getElementById(id).disabled = !connected;
+    });
     if (connected) {
       try {
         const ss = await invoke('rpc_get_session_settings');
-        document.getElementById('session-dl-queue-enabled').checked = ss.download_queue_enabled;
         document.getElementById('session-dl-queue-size').value = ss.download_queue_size;
-        document.getElementById('session-dl-queue-size').disabled = !ss.download_queue_enabled;
-        document.getElementById('session-seed-ratio-limited').checked = ss.seed_ratio_limited;
         document.getElementById('session-seed-ratio-limit').value = ss.seed_ratio_limit;
-        document.getElementById('session-seed-ratio-limit').disabled = !ss.seed_ratio_limited;
-        document.getElementById('session-idle-seeding-enabled').checked = ss.idle_seeding_limit_enabled;
         document.getElementById('session-idle-seeding-limit').value = ss.idle_seeding_limit;
-        document.getElementById('session-idle-seeding-limit').disabled = !ss.idle_seeding_limit_enabled;
-        document.getElementById('session-speed-dl-enabled').checked = ss.speed_limit_down_enabled;
         document.getElementById('session-speed-dl').value = ss.speed_limit_down;
-        document.getElementById('session-speed-dl').disabled = !ss.speed_limit_down_enabled;
-        document.getElementById('session-speed-ul-enabled').checked = ss.speed_limit_up_enabled;
         document.getElementById('session-speed-ul').value = ss.speed_limit_up;
-        document.getElementById('session-speed-ul').disabled = !ss.speed_limit_up_enabled;
         document.getElementById('session-alt-dl').value = ss.alt_speed_down;
         document.getElementById('session-alt-ul').value = ss.alt_speed_up;
       } catch (e) {
         console.error('Failed to load session settings:', e);
       }
+    } else {
+      remoteInputIds.forEach(id => {
+        document.getElementById(id).value = '';
+      });
     }
     document.getElementById('settings-overlay').classList.remove('hidden');
   });
@@ -552,19 +554,6 @@ function openSettingsDialog() {
 
 function closeSettingsDialog() {
   document.getElementById('settings-overlay').classList.add('hidden');
-}
-
-const sessionToggleMap = {
-  'session-dl-queue-enabled': 'session-dl-queue-size',
-  'session-seed-ratio-limited': 'session-seed-ratio-limit',
-  'session-idle-seeding-enabled': 'session-idle-seeding-limit',
-  'session-speed-dl-enabled': 'session-speed-dl',
-  'session-speed-ul-enabled': 'session-speed-ul',
-};
-for (const [checkboxId, inputId] of Object.entries(sessionToggleMap)) {
-  document.getElementById(checkboxId)?.addEventListener('change', (e) => {
-    document.getElementById(inputId).disabled = !e.target.checked;
-  });
 }
 
 function openDeleteDialog() {
@@ -910,8 +899,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('settings-overlay')?.addEventListener('mousedown', (e) => {
     if (e.target === e.currentTarget) closeSettingsDialog();
   });
-  document.getElementById('settings-form')?.addEventListener('submit', async (e) => {
+  document.getElementById('settings-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
+  });
+  document.getElementById('settings-save-btn')?.addEventListener('click', async () => {
     const current = await getSettings();
     current.default_download_dir =
       document.getElementById('default-download-dir').value.trim() || null;
@@ -921,18 +912,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     applyTheme(currentTheme);
     if (connected) {
       try {
+        const speedDl = parseInt(document.getElementById('session-speed-dl').value) || 0;
+        const speedUl = parseInt(document.getElementById('session-speed-ul').value) || 0;
         await invoke('rpc_set_session_settings', {
           settings: {
             download_queue_size: parseInt(document.getElementById('session-dl-queue-size').value) || 5,
-            download_queue_enabled: document.getElementById('session-dl-queue-enabled').checked,
+            download_queue_enabled: true,
             seed_ratio_limit: parseFloat(document.getElementById('session-seed-ratio-limit').value) || 2.0,
-            seed_ratio_limited: document.getElementById('session-seed-ratio-limited').checked,
+            seed_ratio_limited: true,
             idle_seeding_limit: parseInt(document.getElementById('session-idle-seeding-limit').value) || 30,
-            idle_seeding_limit_enabled: document.getElementById('session-idle-seeding-enabled').checked,
-            speed_limit_down: parseInt(document.getElementById('session-speed-dl').value) || 100,
-            speed_limit_down_enabled: document.getElementById('session-speed-dl-enabled').checked,
-            speed_limit_up: parseInt(document.getElementById('session-speed-ul').value) || 100,
-            speed_limit_up_enabled: document.getElementById('session-speed-ul-enabled').checked,
+            idle_seeding_limit_enabled: true,
+            speed_limit_down: speedDl,
+            speed_limit_down_enabled: speedDl > 0,
+            speed_limit_up: speedUl,
+            speed_limit_up_enabled: speedUl > 0,
             alt_speed_down: parseInt(document.getElementById('session-alt-dl').value) || 50,
             alt_speed_up: parseInt(document.getElementById('session-alt-ul').value) || 50,
           },

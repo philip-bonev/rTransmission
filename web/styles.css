@@ -407,6 +407,28 @@ body.drag-over::after {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
+#settings-dialog {
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#settings-dialog form {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 20px;
+}
+
+#settings-dialog .dialog-actions {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border-color);
+}
+
 .dialog-header {
     display: flex;
     align-items: center;
@@ -437,7 +459,6 @@ body.drag-over::after {
 
 #connection-settings-form,
 #add-form,
-#settings-form,
 #delete-form {
     padding: 16px 20px 20px;
 }
@@ -549,6 +570,11 @@ body.drag-over::after {
 
 .form-group input:focus {
     border-color: var(--accent-color);
+}
+
+.form-group input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .checkbox-label {
