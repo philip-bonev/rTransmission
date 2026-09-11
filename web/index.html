@@ -21,20 +21,21 @@
   <meta charset="UTF-8" />
   <link rel="stylesheet" href="/styles.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>rTransmission Client</title>
+  <title data-i18n="app_title">rTransmission Client</title>
+  <script src="/i18n.js"></script>
   <script type="module" src="/main.js" defer></script>
 </head>
 
 <body>
   <div id="toolbar">
-    <button id="connect-btn" class="toolbar-btn" title="Connect">
+    <button id="connect-btn" class="toolbar-btn" data-i18n-title="toolbar.connect" title="Connect">
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 20 L11 13 L14 16" />
         <path d="M20 4 L13 11 L16 14" />
       </svg>
     </button>
-    <button id="disconnect-btn" class="toolbar-btn" title="Disconnect" disabled>
+    <button id="disconnect-btn" class="toolbar-btn" data-i18n-title="toolbar.disconnect" title="Disconnect" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 20 L11 13 L14 16" />
@@ -43,21 +44,21 @@
       </svg>
     </button>
     <div class="toolbar-separator"></div>
-    <button id="add-url-btn" class="toolbar-btn" title="Add torrent by URL" disabled>
+    <button id="add-url-btn" class="toolbar-btn" data-i18n-title="toolbar.add_url" title="Add torrent by URL" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
       </svg>
     </button>
-    <button id="add-file-btn" class="toolbar-btn" title="Add torrent file" disabled>
+    <button id="add-file-btn" class="toolbar-btn" data-i18n-title="toolbar.add_file" title="Add torrent file" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
         <path d="M14 2v6h6" />
       </svg>
     </button>
-    <button id="add-magnet-btn" class="toolbar-btn" title="Add magnet link" disabled>
+    <button id="add-magnet-btn" class="toolbar-btn" data-i18n-title="toolbar.add_magnet" title="Add magnet link" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M17 8H6a5 5 0 0 0 0 10h11" />
@@ -66,18 +67,18 @@
       </svg>
     </button>
     <div class="toolbar-separator"></div>
-    <button id="start-btn" class="toolbar-btn" title="Start selected torrents" disabled>
+    <button id="start-btn" class="toolbar-btn" data-i18n-title="toolbar.start" title="Start selected torrents" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" stroke="none">
         <path d="M8 5v14l11-7z" />
       </svg>
     </button>
-    <button id="pause-btn" class="toolbar-btn" title="Pause selected torrents" disabled>
+    <button id="pause-btn" class="toolbar-btn" data-i18n-title="toolbar.pause" title="Pause selected torrents" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" stroke="none">
         <rect x="6" y="4" width="4" height="16" rx="1" />
         <rect x="14" y="4" width="4" height="16" rx="1" />
       </svg>
     </button>
-    <button id="delete-btn" class="toolbar-btn" title="Delete selected torrents" disabled>
+    <button id="delete-btn" class="toolbar-btn" data-i18n-title="toolbar.delete" title="Delete selected torrents" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 6h18" />
@@ -85,7 +86,7 @@
         <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
       </svg>
     </button>
-    <button id="verify-btn" class="toolbar-btn" title="Verify selected torrents" disabled>
+    <button id="verify-btn" class="toolbar-btn" data-i18n-title="toolbar.verify" title="Verify selected torrents" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -93,7 +94,7 @@
         <path d="M10 11l-2 3h4l-2 3" />
       </svg>
     </button>
-    <button id="properties-btn" class="toolbar-btn" title="Show selected torrent properties" disabled>
+    <button id="properties-btn" class="toolbar-btn" data-i18n-title="toolbar.properties" title="Show selected torrent properties" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -103,28 +104,28 @@
       </svg>
     </button>
     <div class="toolbar-separator"></div>
-    <button id="queue-top-btn" class="toolbar-btn" title="Move selected torrents to top of queue" disabled>
+    <button id="queue-top-btn" class="toolbar-btn" data-i18n-title="toolbar.queue_top" title="Move selected torrents to top of queue" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M5 13l7-7 7 7" />
         <path d="M5 20l7-7 7 7" />
       </svg>
     </button>
-    <button id="queue-up-btn" class="toolbar-btn" title="Move selected torrents up in queue" disabled>
+    <button id="queue-up-btn" class="toolbar-btn" data-i18n-title="toolbar.queue_up" title="Move selected torrents up in queue" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 20V5" />
         <path d="M6 11l6-6 6 6" />
       </svg>
     </button>
-    <button id="queue-down-btn" class="toolbar-btn" title="Move selected torrents down in queue" disabled>
+    <button id="queue-down-btn" class="toolbar-btn" data-i18n-title="toolbar.queue_down" title="Move selected torrents down in queue" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 4v15" />
         <path d="M6 13l6 6 6-6" />
       </svg>
     </button>
-    <button id="queue-bottom-btn" class="toolbar-btn" title="Move selected torrents to bottom of queue" disabled>
+    <button id="queue-bottom-btn" class="toolbar-btn" data-i18n-title="toolbar.queue_bottom" title="Move selected torrents to bottom of queue" disabled>
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M5 11l7 7 7-7" />
@@ -132,29 +133,29 @@
       </svg>
     </button>
     <div class="toolbar-separator"></div>
-    <select id="filter-select" title="Filter torrents by state">
-      <option value="all">All states</option>
-      <option value="downloading">Downloading</option>
-      <option value="paused">Paused</option>
-      <option value="seeding">Seeding</option>
-      <option value="verifying">Verifying</option>
-      <option value="finished">Finished</option>
+    <select id="filter-select" data-i18n-title="toolbar.filter" title="Filter torrents by state">
+      <option value="all" data-i18n="filter.all">All states</option>
+      <option value="downloading" data-i18n="filter.downloading">Downloading</option>
+      <option value="paused" data-i18n="filter.paused">Paused</option>
+      <option value="seeding" data-i18n="filter.seeding">Seeding</option>
+      <option value="verifying" data-i18n="filter.verifying">Verifying</option>
+      <option value="finished" data-i18n="filter.finished">Finished</option>
     </select>
-    <select id="sort-select" title="Sort torrents">
-      <option value="queue">Queue</option>
-      <option value="date">Date</option>
-      <option value="size">Size</option>
-      <option value="name">Name</option>
-      <option value="seeders">Seeders</option>
-      <option value="leechers">Leechers</option>
+    <select id="sort-select" data-i18n-title="toolbar.sort" title="Sort torrents">
+      <option value="queue" data-i18n="sort.queue">Queue</option>
+      <option value="date" data-i18n="sort.date">Date</option>
+      <option value="size" data-i18n="sort.size">Size</option>
+      <option value="name" data-i18n="sort.name">Name</option>
+      <option value="seeders" data-i18n="sort.seeders">Seeders</option>
+      <option value="leechers" data-i18n="sort.leechers">Leechers</option>
     </select>
-    <label id="sort-asc-label" class="sort-asc-label" title="Toggle ascending/descending">
+    <label id="sort-asc-label" class="sort-asc-label" data-i18n-title="toolbar.sort_dir" title="Toggle ascending/descending">
       <input type="checkbox" id="sort-asc" checked />
       Asc
     </label>
     <div class="toolbar-separator"></div>
     <div id="toolbar-right">
-      <button id="alt-speed-btn" class="toolbar-btn" title="Toggle slow/fast speed limits">
+      <button id="alt-speed-btn" class="toolbar-btn" data-i18n-title="toolbar.alt_speed" title="Toggle slow/fast speed limits">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
           <path d="M4.5 14.5a7.5 4.5 0 0 1 15 0z" />
@@ -164,7 +165,7 @@
           <path d="M14.5 15.5 16 18.5" />
         </svg>
       </button>
-      <button id="settings-btn" class="toolbar-btn" title="Settings">
+      <button id="settings-btn" class="toolbar-btn" data-i18n-title="toolbar.settings" title="Settings">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 21v-7" />
@@ -178,7 +179,7 @@
           <path d="M18 16h4" />
         </svg>
       </button>
-      <button id="connection-settings-btn" class="toolbar-btn" title="Connection Settings">
+      <button id="connection-settings-btn" class="toolbar-btn" data-i18n-title="toolbar.connection" title="Connection Settings">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
           <path
@@ -191,11 +192,11 @@
   <div id="torrent-viewer">
     <div id="torrent-list"></div>
     <div id="empty-state">
-      <p>Connect to a Transmission daemon to get started</p>
+      <p data-i18n="empty.disconnected">Connect to a Transmission daemon to get started</p>
     </div>
   </div>
   <div id="status-bar">
-    <span id="status-connection">● Disconnected</span>
+    <span id="status-connection" data-i18n="status.disconnected">● Disconnected</span>
     <span id="status-transfer" class="hidden"></span>
     <span id="status-alt-speed" class="hidden"></span>
   </div>
@@ -203,55 +204,55 @@
   <div id="connection-settings-overlay" class="overlay hidden">
     <div id="connection-settings-dialog" class="dialog">
       <div class="dialog-header">
-        <h2>Connection Settings</h2>
+        <h2 data-i18n="conn.title">Connection Settings</h2>
         <button id="connection-settings-close-btn" class="dialog-close-btn">&times;</button>
       </div>
       <form id="connection-settings-form">
         <div class="form-group">
-          <label for="rpc-host">Host</label>
+          <label for="rpc-host" data-i18n="conn.host">Host</label>
           <input type="text" id="rpc-host" placeholder="localhost" />
         </div>
         <div class="form-group">
-          <label for="rpc-port">Port</label>
+          <label for="rpc-port" data-i18n="conn.port">Port</label>
           <input type="number" id="rpc-port" placeholder="9091" />
         </div>
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" id="rpc-auth" />
-            Authentication required
+            <span data-i18n="conn.auth">Authentication required</span>
           </label>
         </div>
         <div id="auth-fields" class="hidden">
           <div class="form-group">
-            <label for="rpc-username">Username</label>
+            <label for="rpc-username" data-i18n="conn.username">Username</label>
             <input type="text" id="rpc-username" placeholder="username" />
           </div>
           <div class="form-group">
-            <label for="rpc-password">Password</label>
+            <label for="rpc-password" data-i18n="conn.password">Password</label>
             <input type="password" id="rpc-password" placeholder="password" />
           </div>
         </div>
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" id="rpc-https" />
-            Use HTTPS (TLS)
+            <span data-i18n="conn.https">Use HTTPS (TLS)</span>
           </label>
         </div>
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" id="rpc-insecure" />
-            Ignore invalid certificates
+            <span data-i18n="conn.insecure">Ignore invalid certificates</span>
           </label>
         </div>
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" id="rpc-auto-connect" />
-            Connect automatically on startup
+            <span data-i18n="conn.auto_connect">Connect automatically on startup</span>
           </label>
         </div>
         <div class="dialog-actions">
-          <button type="button" id="connection-settings-cancel-btn" class="dialog-btn-secondary">Cancel</button>
-          <button type="submit" class="dialog-btn-primary">Save</button>
+          <button type="button" id="connection-settings-cancel-btn" class="dialog-btn-secondary" data-i18n="btn.cancel">Cancel</button>
+          <button type="submit" class="dialog-btn-primary" data-i18n="btn.save">Save</button>
         </div>
       </form>
     </div>
@@ -260,20 +261,20 @@
   <div id="add-overlay" class="overlay hidden">
     <div id="add-dialog" class="dialog">
       <div class="dialog-header">
-        <h2 id="add-dialog-title">Add Torrent</h2>
+        <h2 id="add-dialog-title" data-i18n="add.title">Add Torrent</h2>
         <button id="add-close-btn" class="dialog-close-btn">&times;</button>
       </div>
       <form id="add-form">
         <div class="form-group">
-          <label id="add-input-label" for="add-input">URL</label>
+          <label id="add-input-label" for="add-input" data-i18n="add.label_url">URL</label>
           <div class="add-input-row">
             <input type="text" id="add-input" placeholder="https://example.com/file.torrent" spellcheck="false" />
-            <button type="button" id="add-browse-btn" class="dialog-btn-secondary hidden">Browse</button>
+            <button type="button" id="add-browse-btn" class="dialog-btn-secondary hidden" data-i18n="add.browse">Browse</button>
           </div>
           <div id="add-error" class="dialog-error hidden"></div>
         </div>
         <div class="form-group">
-          <label for="add-download-dir">Download location (optional)</label>
+          <label for="add-download-dir" data-i18n="add.location">Download location (optional)</label>
           <div class="location-field">
             <input type="text" id="add-download-dir" placeholder="/path/to/downloads" spellcheck="false" autocomplete="off" />
             <div id="location-options" class="location-options hidden"></div>
@@ -283,12 +284,12 @@
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" id="add-pause-after-metadata" />
-            Pause after metadata is downloaded
+            <span data-i18n="add.pause">Pause after metadata is downloaded</span>
           </label>
         </div>
         <div class="dialog-actions">
-          <button type="button" id="add-cancel-btn" class="dialog-btn-secondary">Cancel</button>
-          <button type="submit" class="dialog-btn-primary">Add</button>
+          <button type="button" id="add-cancel-btn" class="dialog-btn-secondary" data-i18n="btn.cancel">Cancel</button>
+          <button type="submit" class="dialog-btn-primary" data-i18n="btn.add">Add</button>
         </div>
       </form>
     </div>
@@ -297,7 +298,7 @@
   <div id="delete-overlay" class="overlay hidden">
     <div id="delete-dialog" class="dialog">
       <div class="dialog-header">
-        <h2>Delete Torrent</h2>
+        <h2 data-i18n="delete.title">Delete Torrent</h2>
         <button id="delete-close-btn" class="dialog-close-btn">&times;</button>
       </div>
       <form id="delete-form">
@@ -307,12 +308,12 @@
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" id="delete-data-checkbox" />
-            Also delete downloaded data
+            <span data-i18n="delete.data">Also delete downloaded data</span>
           </label>
         </div>
         <div class="dialog-actions">
-          <button type="button" id="delete-cancel-btn" class="dialog-btn-secondary">Cancel</button>
-          <button type="submit" class="dialog-btn-primary">Delete</button>
+          <button type="button" id="delete-cancel-btn" class="dialog-btn-secondary" data-i18n="btn.cancel">Cancel</button>
+          <button type="submit" class="dialog-btn-primary" data-i18n="btn.delete">Delete</button>
         </div>
       </form>
     </div>
@@ -321,96 +322,97 @@
   <div id="settings-overlay" class="overlay hidden">
     <div id="settings-dialog" class="dialog">
       <div class="dialog-header">
-        <h2>Settings</h2>
+        <h2 data-i18n="settings.title">Settings</h2>
         <button id="settings-close-btn" class="dialog-close-btn">&times;</button>
       </div>
-      <form id="settings-form">
-        <div class="form-group">
-          <label for="default-download-dir">Default download location</label>
-          <input type="text" id="default-download-dir" placeholder="/path/to/downloads" spellcheck="false" />
-        </div>
-        <div class="form-group">
-          <label for="theme-select">Theme</label>
-          <select id="theme-select">
-            <option value="auto">Auto (follow system)</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </div>
-        <div class="form-separator"></div>
-        <div class="form-section-title">Queue</div>
-        <div class="form-group">
-          <label for="session-dl-queue-size">Download queue size</label>
-          <input type="number" id="session-dl-queue-size" min="1" max="100" placeholder="5" disabled />
-        </div>
-        <div class="form-group">
-          <label for="session-seed-ratio-limit">Stop seeding at ratio</label>
-          <input type="number" id="session-seed-ratio-limit" min="0" step="0.1" placeholder="2.0" disabled />
-        </div>
-        <div class="form-group">
-          <label for="session-idle-seeding-limit">Stop seeding if idle for (min)</label>
-          <input type="number" id="session-idle-seeding-limit" min="1" max="40320" placeholder="30" disabled />
-        </div>
-        <div class="form-separator"></div>
-        <div class="form-section-title">Speed Limits</div>
-        <div class="form-group">
-          <label for="session-speed-dl">Download speed limit (KB/s, 0 = unlimited)</label>
-          <input type="number" id="session-speed-dl" min="0" placeholder="100" disabled />
-        </div>
-        <div class="form-group">
-          <label for="session-speed-ul">Upload speed limit (KB/s, 0 = unlimited)</label>
-          <input type="number" id="session-speed-ul" min="0" placeholder="100" disabled />
-        </div>
-        <div class="form-separator"></div>
-        <div class="form-section-title">Alternate Speed Limits</div>
-        <div class="form-group">
-          <label for="session-alt-dl">Download (KB/s)</label>
-          <input type="number" id="session-alt-dl" min="0" placeholder="50" disabled />
-        </div>
-        <div class="form-group">
-          <label for="session-alt-ul">Upload (KB/s)</label>
-          <input type="number" id="session-alt-ul" min="0" placeholder="50" disabled />
-        </div>
-        </div>
-      </form>
+      <div id="settings-scroll">
+        <form id="settings-form">
+          <div class="form-group">
+            <label for="default-download-dir" data-i18n="settings.download_dir">Default download location</label>
+            <input type="text" id="default-download-dir" placeholder="/path/to/downloads" spellcheck="false" />
+          </div>
+          <div class="form-group">
+            <label for="theme-select" data-i18n="settings.theme">Theme</label>
+            <select id="theme-select">
+              <option value="auto" data-i18n="settings.theme_auto">Auto (follow system)</option>
+              <option value="light" data-i18n="settings.theme_light">Light</option>
+              <option value="dark" data-i18n="settings.theme_dark">Dark</option>
+            </select>
+          </div>
+          <div class="form-separator"></div>
+          <div class="form-section-title" data-i18n="settings.queue">Queue</div>
+          <div class="form-group">
+            <label for="session-dl-queue-size" data-i18n="settings.dl_queue">Download queue size</label>
+            <input type="number" id="session-dl-queue-size" min="1" max="100" placeholder="5" disabled />
+          </div>
+          <div class="form-group">
+            <label for="session-seed-ratio-limit" data-i18n="settings.seed_ratio">Stop seeding at ratio</label>
+            <input type="number" id="session-seed-ratio-limit" min="0" step="0.1" placeholder="2.0" disabled />
+          </div>
+          <div class="form-group">
+            <label for="session-idle-seeding-limit" data-i18n="settings.idle_seed">Stop seeding if idle for (min)</label>
+            <input type="number" id="session-idle-seeding-limit" min="1" max="40320" placeholder="30" disabled />
+          </div>
+          <div class="form-separator"></div>
+          <div class="form-section-title" data-i18n="settings.speed_limits">Speed Limits</div>
+          <div class="form-group">
+            <label for="session-speed-dl" data-i18n="settings.dl_speed">Download speed limit (KB/s, 0 = unlimited)</label>
+            <input type="number" id="session-speed-dl" min="0" placeholder="100" disabled />
+          </div>
+          <div class="form-group">
+            <label for="session-speed-ul" data-i18n="settings.ul_speed">Upload speed limit (KB/s, 0 = unlimited)</label>
+            <input type="number" id="session-speed-ul" min="0" placeholder="100" disabled />
+          </div>
+          <div class="form-separator"></div>
+          <div class="form-section-title" data-i18n="settings.alt_speeds">Alternate Speed Limits</div>
+          <div class="form-group">
+            <label for="session-alt-dl" data-i18n="settings.alt_dl">Download (KB/s)</label>
+            <input type="number" id="session-alt-dl" min="0" placeholder="50" disabled />
+          </div>
+          <div class="form-group">
+            <label for="session-alt-ul" data-i18n="settings.alt_ul">Upload (KB/s)</label>
+            <input type="number" id="session-alt-ul" min="0" placeholder="50" disabled />
+          </div>
+        </form>
+      </div>
       <div class="dialog-actions">
-        <button type="button" id="settings-cancel-btn" class="dialog-btn-secondary">Cancel</button>
-        <button type="button" id="settings-save-btn" class="dialog-btn-primary">Save</button>
+        <button type="button" id="settings-cancel-btn" class="dialog-btn-secondary" data-i18n="btn.cancel">Cancel</button>
+        <button type="button" id="settings-save-btn" class="dialog-btn-primary" data-i18n="btn.save">Save</button>
       </div>
     </div>
   </div>
 
   <div id="context-menu" class="context-menu hidden">
-    <div class="context-item" data-action="play">Play</div>
-    <div class="context-item" data-action="pause">Pause</div>
-    <div class="context-item" data-action="delete">Delete</div>
-    <div class="context-item" data-action="verify">Verify</div>
+    <div class="context-item" data-action="play" data-i18n="ctx.play">Play</div>
+    <div class="context-item" data-action="pause" data-i18n="ctx.pause">Pause</div>
+    <div class="context-item" data-action="delete" data-i18n="ctx.delete">Delete</div>
+    <div class="context-item" data-action="verify" data-i18n="ctx.verify">Verify</div>
     <div class="context-separator"></div>
     <div class="context-item has-submenu">
-      Filter
+      <span data-i18n="ctx.filter">Filter</span>
       <span class="context-arrow">▸</span>
       <div class="context-submenu" id="ctx-filter-submenu">
-        <div class="context-item" data-filter="all" data-label="All">All</div>
-        <div class="context-item" data-filter="downloading" data-label="Downloading">Downloading</div>
-        <div class="context-item" data-filter="paused" data-label="Paused">Paused</div>
-        <div class="context-item" data-filter="seeding" data-label="Seeding">Seeding</div>
-        <div class="context-item" data-filter="verifying" data-label="Verifying">Verifying</div>
-        <div class="context-item" data-filter="finished" data-label="Finished">Finished</div>
+        <div class="context-item" data-filter="all" data-label="ctx.all" data-i18n="ctx.all">All</div>
+        <div class="context-item" data-filter="downloading" data-label="filter.downloading" data-i18n="filter.downloading">Downloading</div>
+        <div class="context-item" data-filter="paused" data-label="filter.paused" data-i18n="filter.paused">Paused</div>
+        <div class="context-item" data-filter="seeding" data-label="filter.seeding" data-i18n="filter.seeding">Seeding</div>
+        <div class="context-item" data-filter="verifying" data-label="filter.verifying" data-i18n="filter.verifying">Verifying</div>
+        <div class="context-item" data-filter="finished" data-label="filter.finished" data-i18n="filter.finished">Finished</div>
       </div>
     </div>
     <div class="context-item has-submenu">
-      Sort
+      <span data-i18n="ctx.sort">Sort</span>
       <span class="context-arrow">▸</span>
       <div class="context-submenu" id="ctx-sort-submenu">
-        <div class="context-item" data-sort="date" data-label="Date">Date</div>
-        <div class="context-item" data-sort="leechers" data-label="Leechers">Leechers</div>
-        <div class="context-item" data-sort="name" data-label="Name">Name</div>
-        <div class="context-item" data-sort="queue" data-label="Queue">Queue</div>
-        <div class="context-item" data-sort="seeders" data-label="Seeders">Seeders</div>
-        <div class="context-item" data-sort="size" data-label="Size">Size</div>
+        <div class="context-item" data-sort="date" data-label="sort.date" data-i18n="sort.date">Date</div>
+        <div class="context-item" data-sort="leechers" data-label="sort.leechers" data-i18n="sort.leechers">Leechers</div>
+        <div class="context-item" data-sort="name" data-label="sort.name" data-i18n="sort.name">Name</div>
+        <div class="context-item" data-sort="queue" data-label="sort.queue" data-i18n="sort.queue">Queue</div>
+        <div class="context-item" data-sort="seeders" data-label="sort.seeders" data-i18n="sort.seeders">Seeders</div>
+        <div class="context-item" data-sort="size" data-label="sort.size" data-i18n="sort.size">Size</div>
         <div class="context-separator"></div>
-        <div class="context-item" data-sort-dir="asc" data-label="Ascending">Ascending</div>
-        <div class="context-item" data-sort-dir="desc" data-label="Descending">Descending</div>
+        <div class="context-item" data-sort-dir="asc" data-label="ctx.ascending" data-i18n="ctx.ascending">Ascending</div>
+        <div class="context-item" data-sort-dir="desc" data-label="ctx.descending" data-i18n="ctx.descending">Descending</div>
       </div>
     </div>
   </div>

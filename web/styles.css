@@ -408,15 +408,18 @@ body.drag-over::after {
 }
 
 #settings-dialog {
-    max-height: 80vh;
+    height: 90vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
-#settings-dialog form {
+#settings-scroll {
     flex: 1 1 0;
-    min-height: 0;
     overflow-y: auto;
+}
+
+#settings-scroll form {
     padding: 16px 20px;
 }
 
@@ -435,6 +438,7 @@ body.drag-over::after {
     justify-content: space-between;
     padding: 16px 20px 12px;
     border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 
 .dialog-header h2 {

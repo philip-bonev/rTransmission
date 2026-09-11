@@ -31,7 +31,7 @@ function formatPercent(percent) {
 
 function formatTimeLeft(seconds) {
   if (seconds == null || seconds < 0) return '—';
-  if (seconds === 0) return 'Done';
+  if (seconds === 0) return t('time.done');
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -81,22 +81,22 @@ function createTorrentCard(torrent) {
 
   const stats = [
     `<span class="torrent-stat"><span class="torrent-stat-value">${formatPercent(torrent.percent_done)}</span></span>`,
-    `<span class="torrent-stat"><span class="torrent-stat-label">Queue</span> <span class="torrent-stat-value">${torrent.queue_position}</span></span>`,
+      `<span class="torrent-stat"><span class="torrent-stat-label">${t('torrent.queue')}</span> <span class="torrent-stat-value">${torrent.queue_position}</span></span>`,
   ];
   if (!isStopped) {
     stats.push(
-      `<span class="torrent-stat"><span class="torrent-stat-label">Time left</span> <span class="torrent-stat-value">${timeLeft}</span></span>`,
+      `<span class="torrent-stat"><span class="torrent-stat-label">${t('torrent.time_left')}</span> <span class="torrent-stat-value">${timeLeft}</span></span>`,
       `<span class="torrent-stat"><span class="torrent-stat-label">↓</span> <span class="torrent-stat-value">${formatSpeed(torrent.rate_download)}</span></span>`,
       `<span class="torrent-stat"><span class="torrent-stat-label">↑</span> <span class="torrent-stat-value">${formatSpeed(torrent.rate_upload)}</span></span>`,
-      `<span class="torrent-stat"><span class="torrent-stat-label">Se</span> <span class="torrent-stat-value">${torrent.seeders}</span></span>`,
-      `<span class="torrent-stat"><span class="torrent-stat-label">Le</span> <span class="torrent-stat-value">${torrent.leechers}</span></span>`,
+      `<span class="torrent-stat"><span class="torrent-stat-label">${t('torrent.seeders_short')}</span> <span class="torrent-stat-value">${torrent.seeders}</span></span>`,
+      `<span class="torrent-stat"><span class="torrent-stat-label">${t('torrent.leechers_short')}</span> <span class="torrent-stat-value">${torrent.leechers}</span></span>`,
     );
   }
 
   card.innerHTML = `
     <div class="torrent-card-row">
       <span class="torrent-name">${escapeHtml(torrent.name)}</span>
-      <span class="torrent-status ${statusClass}">${isError ? 'Error' : torrent.status}</span>
+      <span class="torrent-status ${statusClass}">${isError ? t('status.error') : torrent.status}</span>
     </div>
     <div class="torrent-card-row">
       <div class="torrent-stats">
@@ -169,8 +169,8 @@ function renderTorrents(torrents) {
   if (torrentsCache.length === 0) {
     list.innerHTML = '';
     empty.querySelector('p').textContent = connected
-      ? 'Torrent queue is empty.'
-      : 'Connect to a Transmission daemon to get started';
+      ? t('empty.no_torrents')
+      : t('empty.disconnected');
     empty.style.display = '';
     selectedIds.clear();
     updateActionButtons();
@@ -179,7 +179,7 @@ function renderTorrents(torrents) {
 
   if (filtered.length === 0) {
     list.innerHTML = '';
-    empty.querySelector('p').textContent = 'No torrents match the selected filter';
+    empty.querySelector('p').textContent = t('empty.no_match');
     empty.style.display = '';
     selectedIds.clear();
     updateActionButtons();
@@ -227,7 +227,7 @@ function updateConnectionState(isConnected) {
   updateAltSpeedState(false);
   const conn = document.getElementById('status-connection');
   if (conn) {
-    conn.textContent = isConnected ? '● Connected' : '● Disconnected';
+    conn.textContent = isConnected ? `● ${t('status.connected')}` : `● ${t('status.disconnected')}`;
     conn.classList.toggle('status-connected', isConnected);
     conn.classList.toggle('status-disconnected', !isConnected);
   }
@@ -323,7 +323,7 @@ async function connect(silent = false) {
   } catch (error) {
     console.error('Connection failed:', error);
     if (!silent) {
-      alert('Connection failed: ' + error);
+      alert(`${t('error.connection_failed')}: ` + error);
     }
   }
 }
@@ -361,20 +361,20 @@ function reportAddError(message) {
 
 async function addTorrent(input, downloadDir = null, pauseAfterMetadata = false) {
   if (!connected) {
-    reportAddError('Connect to a Transmission daemon first');
+    reportAddError(t('error.connect_first'));
     return false;
   }
   try {
     await invoke('validate_torrent_input', { input });
   } catch (error) {
-    reportAddError(String(error || 'Invalid torrent input'));
+    reportAddError(String(error || t('error.invalid_input')));
     return false;
   }
   try {
     await invoke('rpc_add_torrent', { input, downloadDir, pauseAfterMetadata });
     return true;
   } catch (error) {
-    reportAddError(String(error || 'Failed to add torrent'));
+    reportAddError(String(error || t('error.add_failed')));
     return false;
   }
 }
@@ -384,11 +384,11 @@ async function handleIncomingTorrent(input) {
   if (!value) return;
   const lower = value.toLowerCase();
   if (lower.startsWith('magnet:')) {
-    openAddDialog('Add Magnet Link', 'Magnet link', 'magnet:?xt=urn:btih:...', false, value);
+    openAddDialog(t('add.title_magnet'), t('add.label_magnet'), 'magnet:?xt=urn:btih:...', false, value);
   } else if (lower.startsWith('http://') || lower.startsWith('https://')) {
-    openAddDialog('Add Torrent URL', 'URL', 'https://example.com/file.torrent', false, value);
+    openAddDialog(t('add.title_url'), t('add.label_url'), 'https://example.com/file.torrent', false, value);
   } else {
-    openAddDialog('Add Torrent File', 'Torrent file', '/path/to/file.torrent', true, value);
+    openAddDialog(t('add.title_file'), t('add.label_file'), '/path/to/file.torrent', true, value);
   }
 }
 
@@ -397,7 +397,7 @@ async function addTorrentFile() {
 }
 
 function openAddFileDialog() {
-  openAddDialog('Add Torrent File', 'Torrent file', '/path/to/file.torrent', true);
+  openAddDialog(t('add.title_file'), t('add.label_file'), '/path/to/file.torrent', true);
 }
 
 function getLastDownloadDirs() {
@@ -485,10 +485,10 @@ function updateFreeSpace() {
     el.classList.add('hidden');
     return;
   }
-  el.textContent = 'Checking free space…';
+  el.textContent = t('add.checking_free_space');
   invoke('rpc_get_free_space', { path })
     .then(bytes => {
-      el.textContent = `Free space: ${formatBytes(bytes)}`;
+      el.textContent = `${t('add.free_space')}: ${formatBytes(bytes)}`;
       el.classList.remove('hidden');
     })
     .catch(() => {
@@ -560,7 +560,7 @@ function openDeleteDialog() {
   if (selectedIds.size === 0) return;
   const count = selectedIds.size;
   document.getElementById('delete-count').textContent =
-    count === 1 ? 'Delete the selected torrent?' : `Delete the ${count} selected torrents?`;
+    count === 1 ? t('delete.confirm_one') : t('delete.confirm_many', count);
   document.getElementById('delete-data-checkbox').checked = false;
   document.getElementById('delete-overlay').classList.remove('hidden');
 }
@@ -605,7 +605,7 @@ async function runTorrentAction(command, args) {
     await invoke(command, args);
   } catch (error) {
     console.error('Action failed:', error);
-    alert('Action failed: ' + error);
+    alert(`${t('error.action_failed')}: ` + error);
   }
 }
 
@@ -646,19 +646,19 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('disconnect-btn')?.addEventListener('click', disconnect);
 
   document.getElementById('add-url-btn')?.addEventListener('click', () => {
-    openAddDialog('Add Torrent URL', 'URL', 'https://example.com/file.torrent');
+    openAddDialog(t('add.title_url'), t('add.label_url'), 'https://example.com/file.torrent');
   });
   document.getElementById('add-magnet-btn')?.addEventListener('click', () => {
-    openAddDialog('Add Magnet Link', 'Magnet link', 'magnet:?xt=urn:btih:...');
+    openAddDialog(t('add.title_magnet'), t('add.label_magnet'), 'magnet:?xt=urn:btih:...');
   });
   document.getElementById('add-file-btn')?.addEventListener('click', addTorrentFile);
 
   await listen('menu-connection-settings', openConnectionSettings);
   await listen('menu-add-url', () => {
-    openAddDialog('Add Torrent URL', 'URL', 'https://example.com/file.torrent');
+    openAddDialog(t('add.title_url'), t('add.label_url'), 'https://example.com/file.torrent');
   });
   await listen('menu-add-magnet', () => {
-    openAddDialog('Add Magnet Link', 'Magnet link', 'magnet:?xt=urn:btih:...');
+    openAddDialog(t('add.title_magnet'), t('add.label_magnet'), 'magnet:?xt=urn:btih:...');
   });
   await listen('menu-add-file', addTorrentFile);
   await listen('menu-play', () => {
@@ -681,7 +681,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const checkbox = document.getElementById('sort-asc');
     checkbox.checked = sortAscending;
     const label = document.querySelector('#sort-asc-label');
-    if (label) label.lastChild.textContent = sortAscending ? ' Asc' : ' Desc';
+    if (label) label.lastChild.textContent = sortAscending ? ' ' + t('sort.asc') : ' ' + t('sort.desc');
     renderTorrents(torrentsCache);
   });
   await listen('menu-filter', (event) => {
@@ -731,7 +731,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       updateAltSpeedState(enabled);
     } catch (error) {
       console.error('Failed to toggle speed mode:', error);
-      alert('Failed to toggle speed mode: ' + error);
+      alert(`${t('error.toggle_speed')}: ` + error);
     }
   });
 
@@ -803,6 +803,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     selectTorrentCard(e);
   });
 
+  document.getElementById('torrent-list')?.addEventListener('dblclick', async (e) => {
+    const card = e.target.closest('.torrent-card');
+    if (!card) return;
+    try {
+      await invoke('open_properties_window', { id: Number(card.dataset.id) });
+    } catch (error) {
+      console.error('Failed to open properties:', error);
+    }
+  });
+
   document.getElementById('torrent-list')?.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     const card = e.target.closest('.torrent-card');
@@ -845,7 +855,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       sortAscending = item.dataset.sortDir === 'asc';
       document.getElementById('sort-asc').checked = sortAscending;
       const label = document.querySelector('#sort-asc-label');
-      if (label) label.lastChild.textContent = sortAscending ? ' Asc' : ' Desc';
+      if (label) label.lastChild.textContent = sortAscending ? ' ' + t('sort.asc') : ' ' + t('sort.desc');
       renderTorrents(torrentsCache);
       invoke('update_menu_markers', marker);
     }
@@ -932,7 +942,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         });
       } catch (e) {
         console.error('Failed to save session settings:', e);
-        alert('Failed to save remote settings: ' + e);
+        alert(`${t('error.save_settings')}: ` + e);
       }
     }
     closeSettingsDialog();
@@ -1009,7 +1019,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const value = document.getElementById('add-input').value.trim();
     if (!value) {
-      showAddError('Enter a URL, magnet link, or torrent file path');
+      showAddError(t('add.empty_input'));
       return;
     }
     clearAddError();
@@ -1045,6 +1055,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   const cliFile = await invoke('get_cli_file');
+  applyTranslations();
   invoke('update_menu_markers', {
     sort: sortState,
     sortDir: sortAscending ? 'asc' : 'desc',

@@ -68,28 +68,28 @@ function formatEta(seconds) {
   return `${seconds % 60}s`;
 }
 
-function renderDetails(t) {
+function renderDetails(torrent) {
   const dl = document.getElementById('properties-info');
   const rows = [
-    ['Date Added', formatDate(t.added_date)],
-    ['ETA', formatEta(t.time_left)],
-    ['Queue position', String(t.queue_position)],
-    ['Percent done', formatPercent(t.percent_done)],
-    ['Size', formatBytes(t.total_size)],
-    ['Uploaded', formatBytes(t.uploaded_ever)],
-    ['Downloaded', formatBytes(t.downloaded_ever)],
-    ['Remaining', formatBytes(t.left_until_done)],
-    ['Seeders', String(t.seeders)],
-    ['Leechers', String(t.leechers)],
-    ['State', t.status || '—'],
-    ['Last activity', formatDate(t.last_activity)],
-    ['Error', t.error && t.error_string ? t.error_string : 'None'],
-    ['Name', t.name],
-    ['Location', t.download_dir],
+    [t('prop.date_added'), formatDate(torrent.added_date)],
+    [t('prop.eta'), formatEta(torrent.time_left)],
+    [t('prop.queue'), String(torrent.queue_position)],
+    [t('prop.percent_done'), formatPercent(torrent.percent_done)],
+    [t('prop.size'), formatBytes(torrent.total_size)],
+    [t('prop.uploaded'), formatBytes(torrent.uploaded_ever)],
+    [t('prop.downloaded'), formatBytes(torrent.downloaded_ever)],
+    [t('prop.remaining'), formatBytes(torrent.left_until_done)],
+    [t('prop.seeders'), String(torrent.seeders)],
+    [t('prop.leechers'), String(torrent.leechers)],
+    [t('prop.state'), torrent.status || '—'],
+    [t('prop.last_activity'), formatDate(torrent.last_activity)],
+    [t('prop.error'), torrent.error && torrent.error_string ? torrent.error_string : t('prop.none')],
+    [t('prop.name'), torrent.name],
+    [t('prop.location'), torrent.download_dir],
   ];
   dl.innerHTML = rows
     .map(([label, value]) => {
-      const errorRow = label === 'Error' && t.error ? ' error-row' : '';
+      const errorRow = label === t('prop.error') && torrent.error ? ' error-row' : '';
       return (
         `<div class="info-row${errorRow}">` +
         `<span class="info-label">${escapeHtml(label)}</span>` +
@@ -259,7 +259,7 @@ function renderNode(parentUl, node, depth, path) {
     }
     const dirFullyDownloaded = node.size > 0 && node.done >= node.size;
     check.disabled = dirFullyDownloaded || fileSelectionUpdating;
-    check.title = dirFullyDownloaded ? 'Already downloaded' : '';
+    check.title = dirFullyDownloaded ? t('prop.downloaded_already') : '';
     check.addEventListener('change', () => {
       check.indeterminate = false;
       const indices = collectLeafIndices(node, []);
@@ -269,7 +269,7 @@ function renderNode(parentUl, node, depth, path) {
     check.checked = node.wanted;
     const fullyDownloaded = node.size > 0 && node.done >= node.size;
     check.disabled = fullyDownloaded || fileSelectionUpdating;
-    check.title = fullyDownloaded ? 'Already downloaded' : '';
+    check.title = fullyDownloaded ? t('prop.downloaded_already') : '';
     check.addEventListener('change', () => {
       updateFileSelection([node.index], check.checked, () => {
         node.wanted = check.checked;
@@ -331,7 +331,7 @@ function renderFiles(files) {
   const container = document.getElementById('properties-files');
   container.innerHTML = '';
   if (files.length === 0) {
-    container.textContent = 'No file information available.';
+    container.textContent = t('prop.no_files');
     return;
   }
   treeRoot = buildTree(files);
@@ -347,7 +347,7 @@ async function load() {
     const id = await invoke('get_properties_torrent_id');
     if (id == null) {
       if (revision !== loadRevision) return;
-      message.textContent = 'No torrent selected.';
+      message.textContent = t('prop.no_torrent');
       return;
     }
     const data = await invoke('rpc_get_torrent_details', { id });
@@ -357,9 +357,10 @@ async function load() {
     renderFiles(data.files || []);
     message.classList.add('hidden');
     content.classList.remove('hidden');
+    applyTranslations();
   } catch (error) {
     if (revision !== loadRevision) return;
-    message.textContent = 'Failed to load torrent properties: ' + error;
+    message.textContent = t('prop.load_failed') + ': ' + error;
   }
 }
 

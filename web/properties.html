@@ -242,24 +242,25 @@
     }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Torrent Properties</title>
+  <title data-i18n="properties_title">Torrent Properties</title>
+  <script src="/i18n.js"></script>
   <script src="/properties.js" defer></script>
 </head>
 
 <body>
   <div id="properties-root">
-    <div id="properties-message">Loading…</div>
+    <div id="properties-message" data-i18n="properties.loading">Loading…</div>
     <div id="properties-content" class="hidden">
       <div class="properties-tabs">
-        <button type="button" class="properties-tab active" data-tab="details">Details</button>
-        <button type="button" class="properties-tab" data-tab="files">Files</button>
+        <button type="button" class="properties-tab active" data-tab="details" data-i18n="properties.tab_details">Details</button>
+        <button type="button" class="properties-tab" data-tab="files" data-i18n="properties.tab_files">Files</button>
       </div>
       <div id="properties-top-panel" class="properties-panel" data-panel="details">
-        <div class="panel-header">Torrent details</div>
+        <div class="panel-header" data-i18n="properties.details_header">Torrent details</div>
         <dl id="properties-info"></dl>
       </div>
       <div id="properties-bottom-panel" class="properties-panel hidden-tab" data-panel="files">
-        <div class="panel-header">Files</div>
+        <div class="panel-header" data-i18n="properties.files_header">Files</div>
         <div id="properties-files"></div>
       </div>
     </div>
