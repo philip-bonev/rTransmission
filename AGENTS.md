@@ -12,7 +12,7 @@
 - **Windows:** `main` (defined in `tauri.conf.json`) plus a `properties` window created on demand in `open_properties_window` (`src/lib.rs:839`) pointing at `properties.html`.
 - **Config:** `tauri.conf.json`, `capabilities/default.json`, `Cargo.toml`.
 - **Plugins:** opener, dialog, fs, window-state, single-instance, deep-link (magnet scheme), log.
-- **Platform:** Windows, Linux, macOS.
+- **Platform:** Windows, Linux, macOS. Feature differences handled with `#[cfg(...)]` in Rust.
 
 ## 3. Architecture & Data Flow (important)
 - **Settings:** stored as JSON at `~/.rtransmission/config.json` (cross-platform via HOME/USERPROFILE). Loaded in `.setup()` into `AppState.settings`. The RPC password is base64-encoded on disk (deliberately NOT keyring — treat as obfuscation, never log it).
@@ -40,5 +40,10 @@
 - **No new Rust crates or JS packages** unless explicitly requested.
 - **Security:** never hardcode or log credentials; password must never be written in plaintext to config (base64 only).
 
-## 6. Scoping
+## 6. i18n Rule (IMPORTANT)
+- All UI text (labels, buttons, F-key bar, menu items, modal titles/messages, help text, error messages shown in the UI) MUST go through `web/i18n.js` via `t(key)`/`tp(key, {vars})` or `data-i18n` attributes.
+- **When adding or changing any visible element, ALWAYS update BOTH the Bulgarian (`bg`) and English (`en`) dictionaries in `web/i18n.js`.** Never leave a key defined in only one language. Keep translations in sync.
+- `LANG` is derived from `navigator.language` (prefix `bg` → Bulgarian, otherwise English). New keys must be added to both objects.
+
+## 7. Scoping
 - Frontend logic/UI in `/web`, system/RPC logic in `/src`. Do not mix concerns.
