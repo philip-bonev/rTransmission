@@ -567,6 +567,25 @@ body.drag-over::after {
     cursor: pointer;
 }
 
+.form-separator {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 12px 0;
+}
+
+.form-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.form-group:has(.checkbox-label) + .form-group:not(:has(.checkbox-label)) {
+    margin-top: 6px;
+}
+
 #auth-fields {
     padding-left: 24px;
     border-left: 2px solid var(--border-color);

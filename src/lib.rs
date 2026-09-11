@@ -153,6 +153,22 @@ pub(crate) struct AltSpeedInfo {
     pub upload_limit: i64,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct SessionSettings {
+    pub download_queue_size: i32,
+    pub download_queue_enabled: bool,
+    pub seed_ratio_limit: f64,
+    pub seed_ratio_limited: bool,
+    pub idle_seeding_limit: i32,
+    pub idle_seeding_limit_enabled: bool,
+    pub speed_limit_down: i32,
+    pub speed_limit_down_enabled: bool,
+    pub speed_limit_up: i32,
+    pub speed_limit_up_enabled: bool,
+    pub alt_speed_down: i32,
+    pub alt_speed_up: i32,
+}
+
 struct RawRpc {
     url: url::Url,
     auth: Option<BasicAuth>,
@@ -220,6 +236,71 @@ impl RawRpc {
         self.call(
             "session-set",
             Some(serde_json::json!({ "alt-speed-enabled": enabled })),
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn get_session_settings(&self) -> Result<SessionSettings, String> {
+        let json = self.call("session-get", None).await?;
+        let args = &json["arguments"];
+        Ok(SessionSettings {
+            download_queue_size: args["download-queue-size"]
+                .as_i64()
+                .unwrap_or(5) as i32,
+            download_queue_enabled: args["download-queue-enabled"]
+                .as_bool()
+                .unwrap_or(true),
+            seed_ratio_limit: args["seed-ratio-limit"]
+                .as_f64()
+                .unwrap_or(2.0),
+            seed_ratio_limited: args["seed-ratio-limited"]
+                .as_bool()
+                .unwrap_or(false),
+            idle_seeding_limit: args["idle-seeding-limit"]
+                .as_i64()
+                .unwrap_or(30) as i32,
+            idle_seeding_limit_enabled: args["idle-seeding-limit-enabled"]
+                .as_bool()
+                .unwrap_or(false),
+            speed_limit_down: args["speed-limit-down"]
+                .as_i64()
+                .unwrap_or(100) as i32,
+            speed_limit_down_enabled: args["speed-limit-down-enabled"]
+                .as_bool()
+                .unwrap_or(false),
+            speed_limit_up: args["speed-limit-up"]
+                .as_i64()
+                .unwrap_or(100) as i32,
+            speed_limit_up_enabled: args["speed-limit-up-enabled"]
+                .as_bool()
+                .unwrap_or(false),
+            alt_speed_down: args["alt-speed-down"]
+                .as_i64()
+                .unwrap_or(50) as i32,
+            alt_speed_up: args["alt-speed-up"]
+                .as_i64()
+                .unwrap_or(50) as i32,
+        })
+    }
+
+    async fn set_session_settings(&self, settings: &SessionSettings) -> Result<(), String> {
+        self.call(
+            "session-set",
+            Some(serde_json::json!({
+                "download-queue-size": settings.download_queue_size,
+                "download-queue-enabled": settings.download_queue_enabled,
+                "seed-ratio-limit": settings.seed_ratio_limit,
+                "seed-ratio-limited": settings.seed_ratio_limited,
+                "idle-seeding-limit": settings.idle_seeding_limit,
+                "idle-seeding-limit-enabled": settings.idle_seeding_limit_enabled,
+                "speed-limit-down": settings.speed_limit_down,
+                "speed-limit-down-enabled": settings.speed_limit_down_enabled,
+                "speed-limit-up": settings.speed_limit_up,
+                "speed-limit-up-enabled": settings.speed_limit_up_enabled,
+                "alt-speed-down": settings.alt_speed_down,
+                "alt-speed-up": settings.alt_speed_up,
+            })),
         )
         .await?;
         Ok(())
@@ -759,6 +840,25 @@ async fn rpc_toggle_alt_speed(
 }
 
 #[tauri::command]
+async fn rpc_get_session_settings(
+    raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
+) -> Result<SessionSettings, String> {
+    let guard = raw_state.lock().await;
+    let raw = guard.as_ref().ok_or("Not connected")?;
+    raw.get_session_settings().await
+}
+
+#[tauri::command]
+async fn rpc_set_session_settings(
+    settings: SessionSettings,
+    raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
+) -> Result<(), String> {
+    let guard = raw_state.lock().await;
+    let raw = guard.as_ref().ok_or("Not connected")?;
+    raw.set_session_settings(&settings).await
+}
+
+#[tauri::command]
 async fn rpc_disconnect(
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
     raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
@@ -972,6 +1072,8 @@ pub fn run() {
             rpc_connect,
             rpc_disconnect,
             rpc_toggle_alt_speed,
+            rpc_get_session_settings,
+            rpc_set_session_settings,
             rpc_add_torrent,
             validate_torrent_input,
             rpc_get_torrents,

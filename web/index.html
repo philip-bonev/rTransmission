@@ -337,6 +337,55 @@
             <option value="dark">Dark</option>
           </select>
         </div>
+        <div class="form-separator"></div>
+        <div class="form-section-title">Queue</div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="session-dl-queue-enabled" />
+            Download queue size
+          </label>
+          <input type="number" id="session-dl-queue-size" min="1" max="100" placeholder="5" disabled />
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="session-seed-ratio-limited" />
+            Stop seeding at ratio
+          </label>
+          <input type="number" id="session-seed-ratio-limit" min="0" step="0.1" placeholder="2.0" disabled />
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="session-idle-seeding-enabled" />
+            Stop seeding if idle for (min)
+          </label>
+          <input type="number" id="session-idle-seeding-limit" min="1" max="40320" placeholder="30" disabled />
+        </div>
+        <div class="form-separator"></div>
+        <div class="form-section-title">Speed Limits</div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="session-speed-dl-enabled" />
+            Download speed limit (KB/s)
+          </label>
+          <input type="number" id="session-speed-dl" min="0" placeholder="100" disabled />
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="session-speed-ul-enabled" />
+            Upload speed limit (KB/s)
+          </label>
+          <input type="number" id="session-speed-ul" min="0" placeholder="100" disabled />
+        </div>
+        <div class="form-separator"></div>
+        <div class="form-section-title">Alternate Speed Limits</div>
+        <div class="form-group">
+          <label for="session-alt-dl">Download (KB/s)</label>
+          <input type="number" id="session-alt-dl" min="0" placeholder="50" />
+        </div>
+        <div class="form-group">
+          <label for="session-alt-ul">Upload (KB/s)</label>
+          <input type="number" id="session-alt-ul" min="0" placeholder="50" />
+        </div>
         <div class="dialog-actions">
           <button type="button" id="settings-cancel-btn" class="dialog-btn-secondary">Cancel</button>
           <button type="submit" class="dialog-btn-primary">Save</button>
