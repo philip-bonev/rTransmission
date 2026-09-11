@@ -48,6 +48,7 @@ const en = {
   // Empty state
   'empty.disconnected': 'Connect to a Transmission daemon to get started',
   'empty.queue': 'Torrent queue is empty.',
+  'empty.no_torrents': 'Torrent queue is empty.',
   'empty.no_match': 'No torrents match the selected filter',
 
   // Status bar
@@ -58,8 +59,18 @@ const en = {
   // Torrent card
   'card.queue': 'Queue',
   'card.time_left': 'Time left',
+  'card.seeders': 'Se',
+  'card.leechers': 'Le',
   'card.done': 'Done',
   'card.error': 'Error',
+
+  // Torrent card (alternate keys used by main.js)
+  'time.done': 'Done',
+  'torrent.queue': 'Queue',
+  'torrent.time_left': 'Time left',
+  'torrent.seeders_short': 'Se',
+  'torrent.leechers_short': 'Le',
+  'status.error': 'Error',
 
   // Connection Settings dialog
   'conn.title': 'Connection Settings',
@@ -84,7 +95,9 @@ const en = {
   'add.pause': 'Pause after metadata is downloaded',
   'add.browse': 'Browse',
   'add.checking_free': 'Checking free space\u2026',
+  'add.checking_free_space': 'Checking free space\u2026',
   'add.free_space': 'Free space: ',
+  'add.empty_input': 'Enter a URL, magnet link, or torrent file path',
 
   // Delete dialog
   'delete.title': 'Delete Torrent',
@@ -132,6 +145,13 @@ const en = {
   'props.no_files': 'No file information available.',
   'props.downloaded': 'Already downloaded',
 
+  // Properties window (HTML keys)
+  'properties.loading': 'Loading\u2026',
+  'properties.tab_details': 'Details',
+  'properties.tab_files': 'Files',
+  'properties.details_header': 'Torrent details',
+  'properties.files_header': 'Files',
+
   // Properties detail labels
   'props.date_added': 'Date Added',
   'props.eta': 'ETA',
@@ -150,6 +170,28 @@ const en = {
   'props.location': 'Location',
   'props.no_error': 'None',
 
+  // Properties detail labels (alternate keys used by properties.js)
+  'prop.date_added': 'Date Added',
+  'prop.eta': 'ETA',
+  'prop.queue': 'Queue position',
+  'prop.percent_done': 'Percent done',
+  'prop.size': 'Size',
+  'prop.uploaded': 'Uploaded',
+  'prop.downloaded': 'Downloaded',
+  'prop.remaining': 'Remaining',
+  'prop.seeders': 'Seeders',
+  'prop.leechers': 'Leechers',
+  'prop.state': 'State',
+  'prop.last_activity': 'Last activity',
+  'prop.error': 'Error',
+  'prop.name': 'Name',
+  'prop.location': 'Location',
+  'prop.none': 'None',
+  'prop.downloaded_already': 'Already downloaded',
+  'prop.no_files': 'No file information available.',
+  'prop.no_torrent': 'No torrent selected.',
+  'prop.load_failed': 'Failed to load torrent properties',
+
   // Common buttons
   'btn.cancel': 'Cancel',
   'btn.save': 'Save',
@@ -163,9 +205,12 @@ const en = {
   'error.enter_url': 'Enter a URL, magnet link, or torrent file path',
   'error.file_not_exist': 'File does not exist: ',
   'error.connect_failed': 'Connection failed: ',
+  'error.connection_failed': 'Connection failed',
   'error.action_failed': 'Action failed: ',
   'error.alt_speed_failed': 'Failed to toggle speed mode: ',
+  'error.toggle_speed': 'Failed to toggle speed mode',
   'error.settings_save_failed': 'Failed to save remote settings: ',
+  'error.save_settings': 'Failed to save remote settings',
   'error.file_select_failed': 'Failed to update file selection: ',
 
   // File picker
@@ -216,6 +261,7 @@ const bg = {
 
   'empty.disconnected': 'Свържете се с Transmission daemon за да започнете',
   'empty.queue': 'Опашката е празна.',
+  'empty.no_torrents': 'Опашката е празна.',
   'empty.no_match': 'Няма торенти, отговарящи на филтъра',
 
   'status.connected': '● Свързан',
@@ -224,8 +270,17 @@ const bg = {
 
   'card.queue': 'Опашка',
   'card.time_left': 'Остава',
+  'card.seeders': 'Сй',
+  'card.leechers': 'Лй',
   'card.done': 'Готово',
   'card.error': 'Грешка',
+
+  'time.done': 'Готово',
+  'torrent.queue': 'Опашка',
+  'torrent.time_left': 'Остава',
+  'torrent.seeders_short': 'Сй',
+  'torrent.leechers_short': 'Лй',
+  'status.error': 'Грешка',
 
   'conn.title': 'Настройки на връзката',
   'conn.host': 'Хост',
@@ -248,7 +303,9 @@ const bg = {
   'add.pause': 'Паузирай след сваляне на метаданните',
   'add.browse': 'Избор',
   'add.checking_free': 'Проверка на свободно място\u2026',
+  'add.checking_free_space': 'Проверка на свободно място\u2026',
   'add.free_space': 'Свободно място: ',
+  'add.empty_input': 'Въведете URL, магнит линк или път до торент файл',
 
   'delete.title': 'Изтриване на торент',
   'delete.confirm_one': 'Изтрийте избрания торент?',
@@ -292,6 +349,12 @@ const bg = {
   'props.no_files': 'Няма информация за файлове.',
   'props.downloaded': 'Вече е свалено',
 
+  'properties.loading': 'Зареждане\u2026',
+  'properties.tab_details': 'Подробности',
+  'properties.tab_files': 'Файлове',
+  'properties.details_header': 'Подробности за торента',
+  'properties.files_header': 'Файлове',
+
   'props.date_added': 'Дата на добавяне',
   'props.eta': 'Остава',
   'props.queue_pos': 'Позиция в опашката',
@@ -309,6 +372,27 @@ const bg = {
   'props.location': 'Място',
   'props.no_error': 'Няма',
 
+  'prop.date_added': 'Дата на добавяне',
+  'prop.eta': 'Остава',
+  'prop.queue': 'Позиция в опашката',
+  'prop.percent_done': 'Процент готовност',
+  'prop.size': 'Размер',
+  'prop.uploaded': 'Качено',
+  'prop.downloaded': 'Свалено',
+  'prop.remaining': 'Оставащо',
+  'prop.seeders': 'Сийдъри',
+  'prop.leechers': 'Лийчъри',
+  'prop.state': 'Състояние',
+  'prop.last_activity': 'Последна активност',
+  'prop.error': 'Грешка',
+  'prop.name': 'Име',
+  'prop.location': 'Място',
+  'prop.none': 'Няма',
+  'prop.downloaded_already': 'Вече е свалено',
+  'prop.no_files': 'Няма информация за файлове.',
+  'prop.no_torrent': 'Няма избран торент.',
+  'prop.load_failed': 'Грешка при зареждане',
+
   'btn.cancel': 'Отказ',
   'btn.save': 'Запис',
   'btn.add': 'Добави',
@@ -320,9 +404,12 @@ const bg = {
   'error.enter_url': 'Въведете URL, магнит линк или път до торент файл',
   'error.file_not_exist': 'Файлът не съществува: ',
   'error.connect_failed': 'Грешка при свързване: ',
+  'error.connection_failed': 'Грешка при свързване',
   'error.action_failed': 'Грешка при действие: ',
   'error.alt_speed_failed': 'Грешка при превключване на скоростта: ',
+  'error.toggle_speed': 'Грешка при превключване на скоростта',
   'error.settings_save_failed': 'Грешка при запис на настройките: ',
+  'error.save_settings': 'Грешка при запис на настройките',
   'error.file_select_failed': 'Грешка при избор на файл: ',
 
   'file_picker.torrent': 'Торент файлове',

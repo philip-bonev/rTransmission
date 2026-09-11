@@ -560,7 +560,7 @@ function openDeleteDialog() {
   if (selectedIds.size === 0) return;
   const count = selectedIds.size;
   document.getElementById('delete-count').textContent =
-    count === 1 ? t('delete.confirm_one') : t('delete.confirm_many', count);
+    count === 1 ? t('delete.confirm_one') : t('delete.confirm_many', { count });
   document.getElementById('delete-data-checkbox').checked = false;
   document.getElementById('delete-overlay').classList.remove('hidden');
 }
