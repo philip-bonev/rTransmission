@@ -955,6 +955,18 @@ fn open_properties_window(app: tauri::AppHandle, id: i64) -> Result<(), String> 
 
     if let Some(window) = app.get_webview_window("properties") {
         let _ = window.emit("properties-data", ());
+        if let Some(main) = app.get_webview_window("main") {
+            if let (Ok(mpos), Ok(msize)) = (main.outer_position(), main.outer_size()) {
+                let pw = 760.0_f64;
+                let ph = 680.0_f64;
+                let cx = mpos.x as f64 + (msize.width as f64 - pw) / 2.0;
+                let cy = mpos.y as f64 + (msize.height as f64 - ph) / 2.0;
+                let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                    x: cx as i32,
+                    y: cy as i32,
+                }));
+            }
+        }
         window.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
     }
@@ -968,6 +980,20 @@ fn open_properties_window(app: tauri::AppHandle, id: i64) -> Result<(), String> 
     .min_inner_size(480.0, 420.0)
     .build()
     .map_err(|e| e.to_string())?;
+
+    if let Some(main) = app.get_webview_window("main") {
+        if let (Ok(mpos), Ok(msize)) = (main.outer_position(), main.outer_size()) {
+            let pw = 760.0_f64;
+            let ph = 680.0_f64;
+            let cx = mpos.x as f64 + (msize.width as f64 - pw) / 2.0;
+            let cy = mpos.y as f64 + (msize.height as f64 - ph) / 2.0;
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                x: cx as i32,
+                y: cy as i32,
+            }));
+        }
+    }
+
     window.set_focus().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -1048,6 +1074,43 @@ async fn pause_after_metadata_poll(
     }
 }
 
+#[tauri::command]
+async fn file_rename(old_path: String, new_path: String) -> Result<(), String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    std::thread::spawn(move || {
+        let result = fs::rename(&old_path, &new_path)
+            .map_err(|e| format!("Rename failed: {}", e));
+        let _ = tx.send(result);
+    });
+    rx.await.map_err(|_| "Channel closed".to_string())?
+}
+
+#[tauri::command]
+async fn file_delete(path: String) -> Result<(), String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    std::thread::spawn(move || {
+        let p = std::path::Path::new(&path);
+        let result = if p.is_dir() {
+            fs::remove_dir_all(&path)
+        } else {
+            fs::remove_file(&path)
+        };
+        let _ = tx.send(result.map_err(|e| format!("Delete failed: {}", e)));
+    });
+    rx.await.map_err(|_| "Channel closed".to_string())?
+}
+
+#[tauri::command]
+async fn file_move(source: String, destination: String) -> Result<(), String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    std::thread::spawn(move || {
+        let result = fs::rename(&source, &destination)
+            .map_err(|e| format!("Move failed: {}", e));
+        let _ = tx.send(result);
+    });
+    rx.await.map_err(|_| "Channel closed".to_string())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cli_file = find_file_in_args(std::env::args().skip(1));
@@ -1056,7 +1119,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_window_state::Builder::default().with_denylist(&["properties"]).build())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             use tauri::Emitter;
@@ -1086,6 +1149,9 @@ pub fn run() {
             rpc_get_torrent_details,
             rpc_set_files_wanted,
             update_menu_markers,
+            file_rename,
+            file_delete,
+            file_move,
         ])
         .setup(|app| {
             let home = std::env::var("HOME")

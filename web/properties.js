@@ -353,6 +353,7 @@ async function load() {
     const data = await invoke('rpc_get_torrent_details', { id });
     if (revision !== loadRevision) return;
     currentId = data.id;
+    torrentDownloadDir = data.download_dir || '';
     renderDetails(data);
     renderFiles(data.files || []);
     message.classList.add('hidden');
@@ -382,6 +383,225 @@ function initTabs() {
 }
 
 initTabs();
+
+let torrentDownloadDir = '';
+
+let currentTreePath = null;
+
+function showFileConfirm(title, message, defaultValue) {
+  const overlay = document.getElementById('file-confirm-overlay');
+  const titleEl = document.getElementById('file-confirm-title');
+  const msgEl = document.getElementById('file-confirm-message');
+  const inputEl = document.getElementById('file-confirm-input');
+  const okBtn = document.getElementById('file-confirm-ok');
+  const cancelBtn = document.getElementById('file-confirm-cancel');
+
+  titleEl.textContent = title;
+  msgEl.textContent = message;
+
+  if (defaultValue !== undefined) {
+    inputEl.classList.remove('hidden');
+    inputEl.value = defaultValue;
+  } else {
+    inputEl.classList.add('hidden');
+  }
+
+  overlay.classList.remove('hidden');
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    function cleanup() {
+      overlay.classList.add('hidden');
+      okBtn.removeEventListener('mousedown', onOk);
+      cancelBtn.removeEventListener('mousedown', onCancel);
+      overlay.removeEventListener('mousedown', onBackdrop);
+    }
+
+    function onOk(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (settled) return;
+      settled = true;
+      const val = defaultValue !== undefined ? inputEl.value.trim() : null;
+      cleanup();
+      resolve({ ok: true, value: val });
+    }
+
+    function onCancel(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve({ ok: false });
+    }
+
+    function onBackdrop(e) {
+      if (e.target === overlay) {
+        onCancel(e);
+      }
+    }
+
+    okBtn.addEventListener('mousedown', onOk);
+    cancelBtn.addEventListener('mousedown', onCancel);
+    overlay.addEventListener('mousedown', onBackdrop);
+
+    if (defaultValue !== undefined) {
+      setTimeout(() => {
+        inputEl.focus();
+        inputEl.select();
+      }, 0);
+    }
+  });
+}
+
+function showFileStatus(message) {
+  const msgEl = document.getElementById('file-confirm-message');
+  msgEl.textContent = message;
+  document.getElementById('file-confirm-input').classList.add('hidden');
+  document.getElementById('file-confirm-ok').classList.add('hidden');
+  document.getElementById('file-confirm-cancel').classList.add('hidden');
+}
+
+function hideFileStatus() {
+  document.getElementById('file-confirm-ok').classList.remove('hidden');
+  document.getElementById('file-confirm-cancel').classList.remove('hidden');
+}
+
+async function runFileOp(fn) {
+  try {
+    await fn();
+    return true;
+  } catch (error) {
+    await showFileConfirm(t('file_op.error'), String(error));
+    return false;
+  }
+}
+
+function getDownloadDir() {
+  return torrentDownloadDir || '';
+}
+
+async function fileOpRename(fullPath, oldName) {
+  const res = await showFileConfirm(t('file_op.rename'), t('file_op.rename_msg'), oldName);
+  if (!res.ok) return;
+  const newName = res.value;
+  if (!newName || newName === oldName) return;
+
+  const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+  const newPath = parentDir + '/' + newName;
+  showFileStatus(t('file_op.renaming'));
+  await runFileOp(() => invoke('file_rename', { oldPath: fullPath, newPath }));
+  hideFileStatus();
+  await load();
+}
+
+async function fileOpDelete(fullPath, name) {
+  const res = await showFileConfirm(t('file_op.delete'), t('file_op.delete_msg', { name }));
+  if (!res.ok) return;
+  showFileStatus(t('file_op.deleting'));
+  await runFileOp(() => invoke('file_delete', { path: fullPath }));
+  hideFileStatus();
+  await load();
+}
+
+async function fileOpMove(fullPath) {
+  const res = await showFileConfirm(t('file_op.move'), t('file_op.move_msg'), fullPath);
+  if (!res.ok) return;
+  const dest = res.value;
+  if (!dest || dest === fullPath) return;
+  showFileStatus(t('file_op.moving'));
+  await runFileOp(() => invoke('file_move', { source: fullPath, destination: dest }));
+  hideFileStatus();
+  await load();
+}
+
+async function fileOpCopyPath(fullPath) {
+  try {
+    await navigator.clipboard.writeText(fullPath);
+  } catch {
+    await showFileConfirm(t('file_op.copy_path'), t('file_op.copy_failed'));
+  }
+}
+
+function showFileContextMenu(e, nodePath, isDir) {
+  e.preventDefault();
+  e.stopPropagation();
+  currentTreePath = nodePath;
+  const menu = document.getElementById('file-context-menu');
+  menu.classList.remove('hidden');
+  const rect = menu.getBoundingClientRect();
+  const px = Math.max(4, Math.min(e.clientX, window.innerWidth - rect.width - 4));
+  const py = Math.max(4, Math.min(e.clientY, window.innerHeight - rect.height - 4));
+  menu.style.left = px + 'px';
+  menu.style.top = py + 'px';
+}
+
+function closeFileContextMenu() {
+  document.getElementById('file-context-menu').classList.add('hidden');
+  currentTreePath = null;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('properties-files')?.addEventListener('contextmenu', (e) => {
+    const row = e.target.closest('.tree-row');
+    if (!row) return;
+    const li = row.closest('li');
+    const isDir = li && li.classList.contains('tree-dir');
+    const nameEl = row.querySelector('.tree-name');
+    if (!nameEl) return;
+    const name = nameEl.textContent;
+
+    let nodePath = name;
+    let parent = row.parentElement;
+    while (parent && parent.closest('.tree-children')) {
+      const parentDir = parent.closest('li');
+      if (parentDir) {
+        const parentNameEl = parentDir.querySelector('.tree-name');
+        if (parentNameEl) nodePath = parentNameEl.textContent + '/' + nodePath;
+      }
+      parent = parent.parentElement;
+    }
+
+    showFileContextMenu(e, nodePath, isDir);
+  });
+
+  document.getElementById('file-context-menu')?.addEventListener('mousedown', (e) => {
+    const item = e.target.closest('.file-context-item');
+    if (!item) return;
+    e.preventDefault();
+    const action = item.dataset.action;
+    const path = currentTreePath;
+    closeFileContextMenu();
+    if (!path) return;
+
+    const fullPath = getDownloadDir() + '/' + path;
+    const parts = path.split('/');
+    const name = parts[parts.length - 1];
+
+    switch (action) {
+      case 'rename':
+        fileOpRename(fullPath, name);
+        break;
+      case 'copy':
+        fileOpCopyPath(fullPath);
+        break;
+      case 'move':
+        fileOpMove(fullPath);
+        break;
+      case 'delete':
+        fileOpDelete(fullPath, name);
+        break;
+    }
+  });
+
+  document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('#file-context-menu')) closeFileContextMenu();
+  });
+
+  window.addEventListener('blur', closeFileContextMenu);
+});
 
 listen('properties-data', load).catch(() => {});
 load();

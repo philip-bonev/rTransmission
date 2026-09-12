@@ -240,6 +240,115 @@
       font-size: 14px;
       padding: 24px;
     }
+
+    .file-context-menu {
+      position: fixed;
+      z-index: 1000;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      padding: 4px 0;
+      min-width: 160px;
+    }
+
+    .file-context-menu.hidden {
+      display: none;
+    }
+
+    .file-context-item {
+      padding: 6px 16px;
+      font-size: 13px;
+      color: var(--text-primary);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .file-context-item:hover {
+      background-color: var(--accent-color);
+      color: #fff;
+    }
+
+    .file-confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-confirm-overlay.hidden {
+      display: none;
+    }
+
+    .file-confirm-dialog {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 20px;
+      min-width: 340px;
+      max-width: 480px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .file-confirm-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .file-confirm-message {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      word-break: break-all;
+    }
+
+    .file-confirm-input {
+      width: 100%;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-bottom: 16px;
+      outline: none;
+    }
+
+    .file-confirm-input:focus {
+      border-color: var(--accent-color);
+    }
+
+    .file-confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .file-confirm-actions button {
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .file-btn-cancel {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .file-btn-ok {
+      background: var(--accent-color);
+      color: #fff;
+    }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title data-i18n="properties_title">Torrent Properties</title>
@@ -262,6 +371,25 @@
       <div id="properties-bottom-panel" class="properties-panel hidden-tab" data-panel="files">
         <div class="panel-header" data-i18n="properties.files_header">Files</div>
         <div id="properties-files"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="file-context-menu" class="file-context-menu hidden">
+    <div class="file-context-item" data-action="rename" data-i18n="file_op.rename">Rename</div>
+    <div class="file-context-item" data-action="copy" data-i18n="file_op.copy_path">Copy Path</div>
+    <div class="file-context-item" data-action="move" data-i18n="file_op.move">Move to…</div>
+    <div class="file-context-item" data-action="delete" data-i18n="file_op.delete">Delete</div>
+  </div>
+
+  <div id="file-confirm-overlay" class="file-confirm-overlay hidden">
+    <div class="file-confirm-dialog">
+      <div id="file-confirm-title" class="file-confirm-title"></div>
+      <div id="file-confirm-message" class="file-confirm-message"></div>
+      <input type="text" id="file-confirm-input" class="file-confirm-input hidden" />
+      <div class="file-confirm-actions">
+        <button type="button" id="file-confirm-cancel" class="file-btn-cancel" data-i18n="btn.cancel">Cancel</button>
+        <button type="button" id="file-confirm-ok" class="file-btn-ok" data-i18n="btn.ok">OK</button>
       </div>
     </div>
   </div>
