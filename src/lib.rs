@@ -1074,41 +1074,48 @@ async fn pause_after_metadata_poll(
     }
 }
 
-#[tauri::command]
-async fn file_rename(old_path: String, new_path: String) -> Result<(), String> {
+const FS_TIMEOUT: Duration = Duration::from_secs(5);
+
+async fn run_fs_with_timeout<F>(desc: &str, op: F) -> Result<(), String>
+where
+    F: FnOnce() -> std::io::Result<()> + Send + 'static,
+{
     let (tx, rx) = tokio::sync::oneshot::channel();
     std::thread::spawn(move || {
-        let result = fs::rename(&old_path, &new_path)
-            .map_err(|e| format!("Rename failed: {}", e));
-        let _ = tx.send(result);
+        let _ = tx.send(op());
     });
-    rx.await.map_err(|_| "Channel closed".to_string())?
+    tokio::select! {
+        result = rx => {
+            result.map_err(|_| format!("{}: channel closed", desc))?
+                .map_err(|e| format!("{}: {}", desc, e))
+        }
+        _ = tokio::time::sleep(FS_TIMEOUT) => {
+            Err(format!("{}: timed out (possible network mount issue)", desc))
+        }
+    }
+}
+
+#[tauri::command]
+async fn file_rename(old_path: String, new_path: String) -> Result<(), String> {
+    run_fs_with_timeout("Rename", move || fs::rename(&old_path, &new_path)).await
 }
 
 #[tauri::command]
 async fn file_delete(path: String) -> Result<(), String> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    std::thread::spawn(move || {
-        let p = std::path::Path::new(&path);
-        let result = if p.is_dir() {
-            fs::remove_dir_all(&path)
+    let p = path.clone();
+    run_fs_with_timeout("Delete", move || {
+        let path = std::path::Path::new(&p);
+        if path.is_dir() {
+            fs::remove_dir_all(&p)
         } else {
-            fs::remove_file(&path)
-        };
-        let _ = tx.send(result.map_err(|e| format!("Delete failed: {}", e)));
-    });
-    rx.await.map_err(|_| "Channel closed".to_string())?
+            fs::remove_file(&p)
+        }
+    }).await
 }
 
 #[tauri::command]
 async fn file_move(source: String, destination: String) -> Result<(), String> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    std::thread::spawn(move || {
-        let result = fs::rename(&source, &destination)
-            .map_err(|e| format!("Move failed: {}", e));
-        let _ = tx.send(result);
-    });
-    rx.await.map_err(|_| "Channel closed".to_string())?
+    run_fs_with_timeout("Move", move || fs::rename(&source, &destination)).await
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
