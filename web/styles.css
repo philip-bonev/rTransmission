@@ -598,6 +598,18 @@ body.drag-over::after {
     cursor: pointer;
 }
 
+#test-notification-btn {
+    margin-left: auto;
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
+.form-group:has(#notifications-enabled) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .form-separator {
     height: 1px;
     background-color: var(--border-color);

@@ -25,10 +25,12 @@ let sortState = 'queue';
 let sortAscending = true;
 let lastSelectedId = null;
 const prevTorrentStates = new Map();
+let notificationsEnabled = true;
+let notificationDuration = 5;
 
 function showNotification(title, body) {
-  if (Notification.permission === 'granted') {
-    new Notification(title, { body });
+  if (notificationsEnabled) {
+    invoke('send_notification', { title, body, duration: notificationDuration }).catch(() => {});
   }
 }
 
@@ -557,6 +559,8 @@ function openSettingsDialog() {
   getSettings().then(async (settings) => {
     document.getElementById('default-download-dir').value = settings.default_download_dir || '';
     document.getElementById('theme-select').value = settings.theme || 'auto';
+    document.getElementById('notifications-enabled').checked = settings.notifications_enabled !== false;
+    document.getElementById('notification-duration').value = settings.notification_duration || 5;
     remoteInputIds.forEach(id => {
       document.getElementById(id).disabled = !connected;
     });
@@ -667,15 +671,14 @@ function toggleAuthFields() {
 window.addEventListener('DOMContentLoaded', async () => {
   const settings = await getSettings();
   currentTheme = settings.theme || 'auto';
+  notificationsEnabled = settings.notifications_enabled !== false;
+  notificationDuration = settings.notification_duration || 5;
   applyTheme(currentTheme);
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     applyTheme(currentTheme);
   });
 
     document.getElementById('connect-btn')?.addEventListener('click', () => {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
       connect();
     });
   document.getElementById('disconnect-btn')?.addEventListener('click', disconnect);
@@ -947,12 +950,19 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('settings-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
   });
+  document.getElementById('test-notification-btn')?.addEventListener('click', () => {
+    invoke('send_notification', { title: 'rTransmission', body: t('notify.test'), duration: notificationDuration });
+  });
   document.getElementById('settings-save-btn')?.addEventListener('click', async () => {
     const current = await getSettings();
     current.default_download_dir =
       document.getElementById('default-download-dir').value.trim() || null;
     current.theme = document.getElementById('theme-select').value;
+    current.notifications_enabled = document.getElementById('notifications-enabled').checked;
+    current.notification_duration = parseInt(document.getElementById('notification-duration').value) || 5;
     await setSettings(current);
+    notificationsEnabled = current.notifications_enabled;
+    notificationDuration = current.notification_duration;
     currentTheme = current.theme;
     applyTheme(currentTheme);
     if (connected) {

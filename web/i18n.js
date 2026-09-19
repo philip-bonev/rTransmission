@@ -122,6 +122,9 @@ const en = {
   'settings.theme_auto': 'Auto (follow system)',
   'settings.theme_light': 'Light',
   'settings.theme_dark': 'Dark',
+  'settings.notifications': 'Show notifications when torrents finish',
+  'settings.notification_duration': 'Notification duration (seconds, 0 = system default)',
+  'settings.test_notification': 'Test notification',
   'settings.queue': 'Queue',
   'settings.dl_queue': 'Download queue size',
   'settings.seed_ratio': 'Stop seeding at ratio',
@@ -250,6 +253,7 @@ const en = {
   // Notifications
   'notify.download_done': '"{name}" finished downloading',
   'notify.seeding_done': '"{name}" finished seeding',
+  'notify.test': 'This is a test notification',
 };
 
 const bg = {
@@ -362,6 +366,9 @@ const bg = {
   'settings.theme_auto': 'Автоматично (следвай системата)',
   'settings.theme_light': 'Светла',
   'settings.theme_dark': 'Тъмна',
+  'settings.notifications': 'Показвай нотификации при завършване на торенти',
+  'settings.notification_duration': 'Времетраене на нотификациите (секунди, 0 = по подразбиране)',
+  'settings.test_notification': 'Тестова нотификация',
   'settings.queue': 'Опашка',
   'settings.dl_queue': 'Размер на опашката за сваляне',
   'settings.seed_ratio': 'Спри споделянето при коефициент',
@@ -479,6 +486,7 @@ const bg = {
   // Notifications
   'notify.download_done': '"{name}" завърши свалянето',
   'notify.seeding_done': '"{name}" завърши споделянето',
+  'notify.test': 'Това е тестова нотификация',
 };
 
 const langs = { en, bg };

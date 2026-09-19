@@ -53,10 +53,22 @@ pub(crate) struct Settings {
     pub default_download_dir: Option<String>,
     #[serde(default)]
     pub theme: Theme,
+    #[serde(default = "default_true")]
+    pub notifications_enabled: bool,
+    #[serde(default = "default_notification_duration")]
+    pub notification_duration: u32,
 }
 
 fn default_auto_connect() -> bool {
     true
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_notification_duration() -> u32 {
+    5
 }
 
 impl Default for Settings {
@@ -72,6 +84,8 @@ impl Default for Settings {
             auto_connect: true,
             default_download_dir: None,
             theme: Theme::Auto,
+            notifications_enabled: true,
+            notification_duration: 5,
         }
     }
 }
@@ -1109,6 +1123,60 @@ fn get_about_info() -> serde_json::Value {
     })
 }
 
+#[tauri::command]
+fn send_notification(title: String, body: String, _duration: u32) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let script = format!(
+            "display notification \"{}\" with title \"{}\"",
+            body.replace('\\', "\\\\").replace('"', "\\\""),
+            title.replace('\\', "\\\\").replace('"', "\\\""),
+        );
+        std::process::Command::new("osascript")
+            .args(["-e", &script])
+            .output()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let mut cmd = std::process::Command::new("notify-send");
+        if duration > 0 {
+            cmd.args(["-t", &(duration * 1000).to_string()]);
+        }
+        cmd.arg(&title).arg(&body);
+        cmd.output().map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let expiration = if duration > 0 {
+            format!("$toast.ExpirationTime = [DateTimeOffset]::Now.AddSeconds({});", duration)
+        } else {
+            String::new()
+        };
+        let script = format!(
+            "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null; \
+             $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); \
+             $textNodes = $template.GetElementsByTagName('text'); \
+             $textNodes.Item(0).AppendChild($template.CreateTextNode('{}')) > $null; \
+             $textNodes.Item(1).AppendChild($template.CreateTextNode('{}')) > $null; \
+             $toast = [Windows.UI.Notifications.ToastNotification]::new($template); \
+             {} \
+             [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('rTransmission').Show($toast)",
+            title.replace('\'', "''"),
+            body.replace('\'', "''"),
+            expiration,
+        );
+        std::process::Command::new("powershell")
+            .args(["-WindowStyle", "Hidden", "-Command", &script])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 pub fn run() {
     let cli_file = find_file_in_args(std::env::args().skip(1));
 
@@ -1154,6 +1222,7 @@ pub fn run() {
             file_delete,
             file_move,
             get_about_info,
+            send_notification,
         ])
         .setup(|app| {
             let home = std::env::var("HOME")

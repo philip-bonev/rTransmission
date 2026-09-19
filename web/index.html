@@ -339,6 +339,19 @@
               <option value="dark" data-i18n="settings.theme_dark">Dark</option>
             </select>
           </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="notifications-enabled" checked />
+              <span data-i18n="settings.notifications">Show notifications when torrents finish</span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="notification-duration" data-i18n="settings.notification_duration">Notification duration (seconds, 0 = system default)</label>
+            <input type="number" id="notification-duration" min="0" max="60" placeholder="5" />
+          </div>
+          <div class="form-group">
+            <button type="button" id="test-notification-btn" class="dialog-btn-secondary" data-i18n="settings.test_notification">Test notification</button>
+          </div>
           <div class="form-separator"></div>
           <div class="form-section-title" data-i18n="settings.queue">Queue</div>
           <div class="form-group">
