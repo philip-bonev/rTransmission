@@ -245,42 +245,20 @@ impl RawRpc {
         let json = self.call("session-get", None).await?;
         let args = &json["arguments"];
         Ok(SessionSettings {
-            download_queue_size: args["download-queue-size"]
-                .as_i64()
-                .unwrap_or(5) as i32,
-            download_queue_enabled: args["download-queue-enabled"]
-                .as_bool()
-                .unwrap_or(true),
-            seed_ratio_limit: args["seed-ratio-limit"]
-                .as_f64()
-                .unwrap_or(2.0),
-            seed_ratio_limited: args["seed-ratio-limited"]
-                .as_bool()
-                .unwrap_or(false),
-            idle_seeding_limit: args["idle-seeding-limit"]
-                .as_i64()
-                .unwrap_or(30) as i32,
+            download_queue_size: args["download-queue-size"].as_i64().unwrap_or(5) as i32,
+            download_queue_enabled: args["download-queue-enabled"].as_bool().unwrap_or(true),
+            seed_ratio_limit: args["seed-ratio-limit"].as_f64().unwrap_or(2.0),
+            seed_ratio_limited: args["seed-ratio-limited"].as_bool().unwrap_or(false),
+            idle_seeding_limit: args["idle-seeding-limit"].as_i64().unwrap_or(30) as i32,
             idle_seeding_limit_enabled: args["idle-seeding-limit-enabled"]
                 .as_bool()
                 .unwrap_or(false),
-            speed_limit_down: args["speed-limit-down"]
-                .as_i64()
-                .unwrap_or(100) as i32,
-            speed_limit_down_enabled: args["speed-limit-down-enabled"]
-                .as_bool()
-                .unwrap_or(false),
-            speed_limit_up: args["speed-limit-up"]
-                .as_i64()
-                .unwrap_or(100) as i32,
-            speed_limit_up_enabled: args["speed-limit-up-enabled"]
-                .as_bool()
-                .unwrap_or(false),
-            alt_speed_down: args["alt-speed-down"]
-                .as_i64()
-                .unwrap_or(50) as i32,
-            alt_speed_up: args["alt-speed-up"]
-                .as_i64()
-                .unwrap_or(50) as i32,
+            speed_limit_down: args["speed-limit-down"].as_i64().unwrap_or(100) as i32,
+            speed_limit_down_enabled: args["speed-limit-down-enabled"].as_bool().unwrap_or(false),
+            speed_limit_up: args["speed-limit-up"].as_i64().unwrap_or(100) as i32,
+            speed_limit_up_enabled: args["speed-limit-up-enabled"].as_bool().unwrap_or(false),
+            alt_speed_down: args["alt-speed-down"].as_i64().unwrap_or(50) as i32,
+            alt_speed_up: args["alt-speed-up"].as_i64().unwrap_or(50) as i32,
         })
     }
 
@@ -955,17 +933,17 @@ fn open_properties_window(app: tauri::AppHandle, id: i64) -> Result<(), String> 
 
     if let Some(window) = app.get_webview_window("properties") {
         let _ = window.emit("properties-data", ());
-        if let Some(main) = app.get_webview_window("main") {
-            if let (Ok(mpos), Ok(msize)) = (main.outer_position(), main.outer_size()) {
-                let pw = 760.0_f64;
-                let ph = 680.0_f64;
-                let cx = mpos.x as f64 + (msize.width as f64 - pw) / 2.0;
-                let cy = mpos.y as f64 + (msize.height as f64 - ph) / 2.0;
-                let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                    x: cx as i32,
-                    y: cy as i32,
-                }));
-            }
+        if let Some(main) = app.get_webview_window("main")
+            && let (Ok(mpos), Ok(msize)) = (main.outer_position(), main.outer_size())
+        {
+            let pw = 760.0_f64;
+            let ph = 680.0_f64;
+            let cx = mpos.x as f64 + (msize.width as f64 - pw) / 2.0;
+            let cy = mpos.y as f64 + (msize.height as f64 - ph) / 2.0;
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                x: cx as i32,
+                y: cy as i32,
+            }));
         }
         window.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
@@ -981,17 +959,17 @@ fn open_properties_window(app: tauri::AppHandle, id: i64) -> Result<(), String> 
     .build()
     .map_err(|e| e.to_string())?;
 
-    if let Some(main) = app.get_webview_window("main") {
-        if let (Ok(mpos), Ok(msize)) = (main.outer_position(), main.outer_size()) {
-            let pw = 760.0_f64;
-            let ph = 680.0_f64;
-            let cx = mpos.x as f64 + (msize.width as f64 - pw) / 2.0;
-            let cy = mpos.y as f64 + (msize.height as f64 - ph) / 2.0;
-            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                x: cx as i32,
-                y: cy as i32,
-            }));
-        }
+    if let Some(main) = app.get_webview_window("main")
+        && let (Ok(mpos), Ok(msize)) = (main.outer_position(), main.outer_size())
+    {
+        let pw = 760.0_f64;
+        let ph = 680.0_f64;
+        let cx = mpos.x as f64 + (msize.width as f64 - pw) / 2.0;
+        let cy = mpos.y as f64 + (msize.height as f64 - ph) / 2.0;
+        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+            x: cx as i32,
+            y: cy as i32,
+        }));
     }
 
     window.set_focus().map_err(|e| e.to_string())?;
@@ -1110,7 +1088,8 @@ async fn file_delete(path: String) -> Result<(), String> {
         } else {
             fs::remove_file(&p)
         }
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1130,7 +1109,6 @@ fn get_about_info() -> serde_json::Value {
     })
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cli_file = find_file_in_args(std::env::args().skip(1));
 
@@ -1138,7 +1116,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_window_state::Builder::default().with_denylist(&["properties"]).build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_denylist(&["properties"])
+                .build(),
+        )
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             use tauri::Emitter;
@@ -1220,7 +1202,13 @@ pub fn run() {
                     app.package_info().name.clone(),
                     true,
                     &[
-                        &MenuItem::with_id(app, "about", "About rTransmission Client", true, None::<&str>)?,
+                        &MenuItem::with_id(
+                            app,
+                            "about",
+                            "About rTransmission Client",
+                            true,
+                            None::<&str>,
+                        )?,
                         &connection_settings,
                         &PredefinedMenuItem::separator(app)?,
                         &PredefinedMenuItem::services(app, None)?,
@@ -1318,9 +1306,7 @@ pub fn run() {
                 let sort_all_buttons: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = sort_buttons
                     .iter()
                     .map(|&b| b as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
-                    .chain(
-                        [&sort_separator as &dyn tauri::menu::IsMenuItem<tauri::Wry>],
-                    )
+                    .chain([&sort_separator as &dyn tauri::menu::IsMenuItem<tauri::Wry>])
                     .chain(
                         sort_dir_buttons
                             .iter()

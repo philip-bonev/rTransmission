@@ -5,4 +5,5 @@ fn main() {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap_or_default();
     println!("cargo:rustc-env=BUILD_DATE={}", date);
+    tauri_build::build()
 }

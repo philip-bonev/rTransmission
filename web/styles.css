@@ -407,7 +407,8 @@ body.drag-over::after {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
-#settings-dialog {
+#settings-dialog,
+#about-dialog {
     height: 90vh;
     display: flex;
     flex-direction: column;
