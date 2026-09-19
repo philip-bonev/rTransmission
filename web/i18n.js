@@ -232,6 +232,10 @@ const en = {
   'file_op.move_msg': 'Enter destination path:',
   'file_op.moving': 'Moving\u2026',
   'file_op.copy_failed': 'Failed to copy path to clipboard',
+
+  // About dialog
+  'about.title': 'About rTransmission Client',
+  'about.build_date': 'Build date',
 };
 
 const bg = {
@@ -445,6 +449,9 @@ const bg = {
   'file_op.move_msg': 'Въведете път за местене:',
   'file_op.moving': 'Местене\u2026',
   'file_op.copy_failed': 'Грешка при копиране на път',
+
+  'about.title': 'Относно rTransmission Client',
+  'about.build_date': 'Дата на компилация',
 };
 
 const langs = { en, bg };

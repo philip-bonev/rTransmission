@@ -31,7 +31,7 @@
 
 ## 5. Project Commands
 - **Run Dev Mode:** `cargo tauri dev`
-- **Build Production:** `cargo tauri build` (bundle appears under `target/release/bundle/`). Do NOT set SDKROOT or DEVELOPER_DIR — breaks macOS DMG bundler (Set-File dialog). Just use `export PATH=/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.cargo/bin`.
+- **Build Production:** `SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer cargo tauri build` (bundle appears under `target/release/bundle/`).
 - **Lint Rust:** `cargo clippy`
 - **Format Rust:** `cargo fmt`
 - **macOS install after build:** `ditto "target/release/bundle/macos/rTransmission Client.app" "/Applications/rTransmission Client.app"`

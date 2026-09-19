@@ -1118,6 +1118,18 @@ async fn file_move(source: String, destination: String) -> Result<(), String> {
     run_fs_with_timeout("Move", move || fs::rename(&source, &destination)).await
 }
 
+#[tauri::command]
+fn get_about_info() -> serde_json::Value {
+    let version = env!("CARGO_PKG_VERSION");
+    let date = env!("BUILD_DATE");
+    let license = include_str!("../LICENSE");
+    serde_json::json!({
+        "version": version,
+        "build_date": date,
+        "license": license,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cli_file = find_file_in_args(std::env::args().skip(1));
@@ -1159,6 +1171,7 @@ pub fn run() {
             file_rename,
             file_delete,
             file_move,
+            get_about_info,
         ])
         .setup(|app| {
             let home = std::env::var("HOME")
@@ -1207,7 +1220,7 @@ pub fn run() {
                     app.package_info().name.clone(),
                     true,
                     &[
-                        &PredefinedMenuItem::about(app, None, None)?,
+                        &MenuItem::with_id(app, "about", "About rTransmission Client", true, None::<&str>)?,
                         &connection_settings,
                         &PredefinedMenuItem::separator(app)?,
                         &PredefinedMenuItem::services(app, None)?,
@@ -1378,6 +1391,9 @@ pub fn run() {
                 app.on_menu_event(|app_handle, event| {
                     let id = event.id().as_ref();
                     match id {
+                        "about" => {
+                            let _ = app_handle.emit("menu-about", ());
+                        }
                         "connection-settings" => {
                             let _ = app_handle.emit("menu-connection-settings", ());
                         }

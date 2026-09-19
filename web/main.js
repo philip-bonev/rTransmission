@@ -1123,4 +1123,33 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
     }
   });
+
+  async function openAboutDialog() {
+    try {
+      const info = await invoke('get_about_info');
+      document.getElementById('about-version').textContent = `v${info.version}`;
+      document.getElementById('about-date').textContent = `${t('about.build_date')}: ${info.build_date}`;
+      document.getElementById('about-license').textContent = info.license;
+    } catch (e) {
+      console.error('Failed to load about info:', e);
+    }
+    document.getElementById('about-overlay').classList.remove('hidden');
+  }
+
+  function closeAboutDialog() {
+    document.getElementById('about-overlay').classList.add('hidden');
+  }
+
+  document.getElementById('about-close-btn')?.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    closeAboutDialog();
+  });
+  document.getElementById('about-overlay')?.addEventListener('mousedown', (e) => {
+    if (e.target === e.currentTarget) closeAboutDialog();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAboutDialog();
+  });
+
+  await listen('menu-about', openAboutDialog);
 });
