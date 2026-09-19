@@ -24,6 +24,31 @@ let torrentsCache = [];
 let sortState = 'queue';
 let sortAscending = true;
 let lastSelectedId = null;
+const prevTorrentStates = new Map();
+
+function showNotification(title, body) {
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body });
+  }
+}
+
+function checkTorrentNotifications(torrents) {
+  for (const tor of torrents) {
+    const prev = prevTorrentStates.get(String(tor.id));
+    if (prev) {
+      const wasDone = prev.percent_done >= 1.0;
+      const isDone = tor.percent_done >= 1.0;
+      const wasSeeding = prev.status === 'Seeding';
+      const isStopped = tor.status === 'Stopped';
+      if (!wasDone && isDone) {
+        showNotification('rTransmission', t('notify.download_done', { name: tor.name }));
+      } else if (wasSeeding && isDone && isStopped) {
+        showNotification('rTransmission', t('notify.seeding_done', { name: tor.name }));
+      }
+    }
+    prevTorrentStates.set(String(tor.id), { percent_done: tor.percent_done, status: tor.status });
+  }
+}
 
 function formatPercent(percent) {
   return (percent * 100).toFixed(1) + '%';
@@ -69,6 +94,10 @@ function getStatusClass(status) {
   }
 }
 
+function translateStatus(status) {
+  return t('status.' + status) || status;
+}
+
 function createTorrentCard(torrent) {
   const card = document.createElement('div');
   card.className = 'torrent-card';
@@ -96,7 +125,7 @@ function createTorrentCard(torrent) {
   card.innerHTML = `
     <div class="torrent-card-row">
       <span class="torrent-name">${escapeHtml(torrent.name)}</span>
-      <span class="torrent-status ${statusClass}">${isError ? t('status.error') : torrent.status}</span>
+      <span class="torrent-status ${statusClass}">${isError ? t('status.error') : translateStatus(torrent.status)}</span>
     </div>
     <div class="torrent-card-row">
       <div class="torrent-stats">
@@ -213,7 +242,7 @@ function updateAltSpeedState(info) {
   if (alt) {
     if (info && typeof info === 'object' && enabled) {
       alt.textContent =
-        `· Slow mode: ↓ ${formatSpeed(info.download_limit)} ↑ ${formatSpeed(info.upload_limit)}`;
+        `${t('status.slow')}↓ ${formatSpeed(info.download_limit)} ↑ ${formatSpeed(info.upload_limit)}`;
       alt.classList.remove('hidden');
     } else {
       alt.textContent = '';
@@ -249,7 +278,7 @@ function updateTransferStats(stats) {
   if (!el || !stats) return;
   const down = stats.download_speed || 0;
   const up = stats.upload_speed || 0;
-  el.textContent = `↓ ${formatSpeed(down)} ↑ ${formatSpeed(up)} · Total ${formatSpeed(down + up)}`;
+  el.textContent = `↓ ${formatSpeed(down)} ↑ ${formatSpeed(up)} · ${t('status.total')} ${formatSpeed(down + up)}`;
 }
 
 function getSelectedIds() {
@@ -332,6 +361,7 @@ async function disconnect() {
   try {
     await invoke('rpc_disconnect');
     updateConnectionState(false);
+    prevTorrentStates.clear();
     renderTorrents([]);
   } catch (error) {
     console.error('Disconnect failed:', error);
@@ -642,7 +672,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     applyTheme(currentTheme);
   });
 
-  document.getElementById('connect-btn')?.addEventListener('click', () => connect());
+    document.getElementById('connect-btn')?.addEventListener('click', () => {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+      connect();
+    });
   document.getElementById('disconnect-btn')?.addEventListener('click', disconnect);
 
   document.getElementById('add-url-btn')?.addEventListener('click', () => {
@@ -1043,6 +1078,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   await listen('torrents-update', (event) => {
+    checkTorrentNotifications(event.payload);
     renderTorrents(event.payload);
   });
 

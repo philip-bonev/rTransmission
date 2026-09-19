@@ -81,7 +81,7 @@ function renderDetails(torrent) {
     [t('prop.remaining'), formatBytes(torrent.left_until_done)],
     [t('prop.seeders'), String(torrent.seeders)],
     [t('prop.leechers'), String(torrent.leechers)],
-    [t('prop.state'), torrent.status || '—'],
+    [t('prop.state'), t('status.' + torrent.status) || torrent.status || '—'],
     [t('prop.last_activity'), formatDate(torrent.last_activity)],
     [t('prop.error'), torrent.error && torrent.error_string ? torrent.error_string : t('prop.none')],
     [t('prop.name'), torrent.name],

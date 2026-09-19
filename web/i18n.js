@@ -64,6 +64,16 @@ const en = {
   'card.done': 'Done',
   'card.error': 'Error',
 
+  // Torrent status translations
+  'status.Downloading': 'Downloading',
+  'status.Seeding': 'Seeding',
+  'status.Stopped': 'Stopped',
+  'status.Checking': 'Checking',
+  'status.Waiting to download': 'Waiting to download',
+  'status.Waiting to seed': 'Waiting to seed',
+  'status.Waiting to check': 'Waiting to check',
+  'status.total': 'Total',
+
   // Torrent card (alternate keys used by main.js)
   'time.done': 'Done',
   'torrent.queue': 'Queue',
@@ -236,6 +246,10 @@ const en = {
   // About dialog
   'about.title': 'About rTransmission Client',
   'about.build_date': 'Build date',
+
+  // Notifications
+  'notify.download_done': '"{name}" finished downloading',
+  'notify.seeding_done': '"{name}" finished seeding',
 };
 
 const bg = {
@@ -295,6 +309,15 @@ const bg = {
   'card.leechers': 'Лй',
   'card.done': 'Готово',
   'card.error': 'Грешка',
+
+  'status.Downloading': 'Сваляне',
+  'status.Seeding': 'Споделяне',
+  'status.Stopped': 'Спряно',
+  'status.Checking': 'Проверка',
+  'status.Waiting to download': 'Изчакване за сваляне',
+  'status.Waiting to seed': 'Изчакване за споделяне',
+  'status.Waiting to check': 'Изчакване за проверка',
+  'status.total': 'Общо',
 
   'time.done': 'Готово',
   'torrent.queue': 'Опашка',
@@ -452,6 +475,10 @@ const bg = {
 
   'about.title': 'Относно rTransmission Client',
   'about.build_date': 'Дата на компилация',
+
+  // Notifications
+  'notify.download_done': '"{name}" завърши свалянето',
+  'notify.seeding_done': '"{name}" завърши споделянето',
 };
 
 const langs = { en, bg };
