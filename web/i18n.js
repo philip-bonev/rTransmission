@@ -358,7 +358,7 @@ const bg = {
   'delete.title': 'Изтриване на торент',
   'delete.confirm_one': 'Изтрийте избрания торент?',
   'delete.confirm_many': 'Изтрийте {count} избрани торента?',
-  'delete.data': 'Изtriй и свалените данни',
+  'delete.data': 'Изтрий и свалените данни',
 
   'settings.title': 'Настройки',
   'settings.download_dir': 'Папка по подразбиране за сваляне',
