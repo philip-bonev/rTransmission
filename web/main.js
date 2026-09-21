@@ -561,6 +561,7 @@ function openSettingsDialog() {
     document.getElementById('theme-select').value = settings.theme || 'auto';
     document.getElementById('notifications-enabled').checked = settings.notifications_enabled !== false;
     document.getElementById('notification-duration').value = settings.notification_duration || 5;
+    document.getElementById('minimize-to-tray').checked = settings.minimize_to_tray !== false;
     remoteInputIds.forEach(id => {
       document.getElementById(id).disabled = !connected;
     });
@@ -960,6 +961,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     current.theme = document.getElementById('theme-select').value;
     current.notifications_enabled = document.getElementById('notifications-enabled').checked;
     current.notification_duration = parseInt(document.getElementById('notification-duration').value) || 5;
+    current.minimize_to_tray = document.getElementById('minimize-to-tray').checked;
     await setSettings(current);
     notificationsEnabled = current.notifications_enabled;
     notificationDuration = current.notification_duration;
