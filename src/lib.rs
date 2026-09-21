@@ -57,6 +57,8 @@ pub(crate) struct Settings {
     pub notifications_enabled: bool,
     #[serde(default = "default_notification_duration")]
     pub notification_duration: u32,
+    #[serde(default = "default_true")]
+    pub minimize_to_tray: bool,
 }
 
 fn default_auto_connect() -> bool {
@@ -86,6 +88,7 @@ impl Default for Settings {
             theme: Theme::Auto,
             notifications_enabled: true,
             notification_duration: 5,
+            minimize_to_tray: true,
         }
     }
 }
@@ -1151,7 +1154,10 @@ fn send_notification(title: String, body: String, _duration: u32) -> Result<(), 
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         let expiration = if duration > 0 {
-            format!("$toast.ExpirationTime = [DateTimeOffset]::Now.AddSeconds({});", duration)
+            format!(
+                "$toast.ExpirationTime = [DateTimeOffset]::Now.AddSeconds({});",
+                duration
+            )
         } else {
             String::new()
         };
@@ -1197,6 +1203,20 @@ pub fn run() {
                 let _ = app.emit("file-opened", path);
             }
         }))
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let handle = window.app_handle();
+                if let Some(state) = handle.try_state::<Mutex<AppState>>() {
+                    let settings = state.inner().lock().unwrap().settings.clone();
+                    if settings.minimize_to_tray {
+                        let _ = window.hide();
+                        api.prevent_close();
+                    } else {
+                        handle.exit(0);
+                    }
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             get_cli_file,
             get_settings,
@@ -1496,6 +1516,48 @@ pub fn run() {
                         _ => {}
                     }
                 });
+            }
+
+            {
+                use tauri::menu::{Menu, MenuItem};
+                use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+
+                let show_i = MenuItem::with_id(app, "tray-show", "Show", true, None::<&str>)?;
+                let quit_i = MenuItem::with_id(app, "tray-quit", "Quit", true, None::<&str>)?;
+                let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+
+                let _tray = TrayIconBuilder::with_id("main-tray")
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .tooltip("rTransmission Client")
+                    .menu(&menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| match event.id().as_ref() {
+                        "tray-show" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                        "tray-quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            let app = tray.app_handle();
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    })
+                    .build(app)?;
             }
 
             let handle = app.handle().clone();

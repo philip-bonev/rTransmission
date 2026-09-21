@@ -31,10 +31,11 @@
 
 ## 5. Project Commands
 - **Run Dev Mode:** `cargo tauri dev`
-- **Build Production:** `SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer cargo tauri build` (bundle appears under `target/release/bundle/`).
+- **Build Production:** `cargo tauri build` (bundle appears under `target/release/bundle/`).
+- **macOS PATH:** The opencode shell session may lack `/usr/bin` in `$PATH`. If a system tool (like `cc`, `ditto`, `rm`, etc.) is not found, ask the user to run the command in their terminal or prefix it with `PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/Users/fi4o/.cargo/bin:/usr/bin:/usr/sbin:/bin:/sbin:$PATH"`.
+- **macOS install after build:** `ditto "target/release/bundle/macos/rTransmission Client.app" "/Applications/rTransmission Client.app"`
 - **Lint Rust:** `cargo clippy`
 - **Format Rust:** `cargo fmt`
-- **macOS install after build:** `ditto "target/release/bundle/macos/rTransmission Client.app" "/Applications/rTransmission Client.app"`
 - **Verify JS:** `node --check web/<file>.js`
 - **Version:** bump BOTH `Cargo.toml` and `tauri.conf.json` `version`.
 
@@ -57,6 +58,6 @@
 - **Dynamic text:** Call `t('key')` in JS. For parameterized strings, use `t('key', param)` — the dict value is a function `(p) => ...`.
 - **On load:** Call `applyTranslations()` after DOM is ready (in `DOMContentLoaded` for main.js, in `load()` for properties.js).
 - **Context menu:** `data-label` attributes on context items use translation keys (e.g. `data-label="sort.date"`); `updateContextMenuChecks()` uses `t(el.dataset.label)`.
-- **Adding new strings:** Add key to both `en` and `bg` dicts in i18n.js. Keep keys hierarchical: `toolbar.connect`, `add.title_url`, `prop.size`, `btn.save`, etc.
+- **Adding new strings:** Add key to both `en` and `bg` dicts in i18n.js. Keep keys hierarchical: `toolbar.connect`, `add.title_url`, `prop.size`, `btn.save`, etc. Always spell-check both English and Bulgarian text before adding.
 - Frontend logic/UI in `/web`, system/RPC logic in `/src`. Do not mix concerns.
 - Frontend logic/UI in `/web`, system/RPC logic in `/src`. Do not mix concerns.
