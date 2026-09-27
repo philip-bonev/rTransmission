@@ -1216,7 +1216,9 @@ pub fn run() {
             }
         }))
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            if window.label() == "main"
+                && let tauri::WindowEvent::CloseRequested { api, .. } = event
+            {
                 let handle = window.app_handle();
                 if let Some(state) = handle.try_state::<Mutex<AppState>>() {
                     let settings = state.inner().lock().unwrap().settings.clone();
