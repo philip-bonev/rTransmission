@@ -751,10 +751,21 @@ fn get_settings(state: State<'_, Mutex<AppState>>) -> Result<Settings, String> {
 }
 
 #[tauri::command]
-fn set_settings(new_settings: Settings, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+fn set_settings(
+    new_settings: Settings,
+    state: State<'_, Mutex<AppState>>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
     let mut state = state.lock().unwrap();
     state.settings = new_settings.clone();
-    save_settings(&state.settings_path, &new_settings)
+    save_settings(&state.settings_path, &new_settings)?;
+
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        tray.set_visible(new_settings.minimize_to_tray)
+            .map_err(|e| format!("Failed to update tray icon visibility: {e}"))?;
+    }
+
+    Ok(())
 }
 
 #[derive(Debug, Deserialize)]
@@ -1527,7 +1538,14 @@ pub fn run() {
                 let quit_i = MenuItem::with_id(app, "tray-quit", "Quit", true, None::<&str>)?;
                 let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
-                let _tray = TrayIconBuilder::with_id("main-tray")
+                let minimize_to_tray = app
+                    .state::<Mutex<AppState>>()
+                    .inner()
+                    .lock()
+                    .unwrap()
+                    .settings
+                    .minimize_to_tray;
+                let tray = TrayIconBuilder::with_id("main-tray")
                     .icon(app.default_window_icon().unwrap().clone())
                     .tooltip("rTransmission Client")
                     .menu(&menu)
@@ -1559,6 +1577,7 @@ pub fn run() {
                         }
                     })
                     .build(app)?;
+                tray.set_visible(minimize_to_tray)?;
             }
 
             let handle = app.handle().clone();
