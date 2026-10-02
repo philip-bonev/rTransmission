@@ -96,6 +96,13 @@ impl Default for Settings {
 static CLI_FILE: Mutex<Option<String>> = Mutex::new(None);
 static PROPERTIES_ID: Mutex<Option<i64>> = Mutex::new(None);
 
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 pub(crate) struct AppState {
     pub settings: Settings,
     pub settings_path: PathBuf,
@@ -1176,7 +1183,13 @@ fn get_about_info() -> serde_json::Value {
 }
 
 #[tauri::command]
-fn send_notification(title: String, body: String, duration: u32) -> Result<(), String> {
+fn send_notification(
+    app: tauri::AppHandle,
+    title: String,
+    body: String,
+    duration: u32,
+) -> Result<(), String> {
+    let _ = &app;
     #[cfg(target_os = "macos")]
     {
         let _ = duration;
@@ -1192,12 +1205,29 @@ fn send_notification(title: String, body: String, duration: u32) -> Result<(), S
     }
     #[cfg(target_os = "linux")]
     {
-        let mut cmd = std::process::Command::new("notify-send");
-        if duration > 0 {
-            cmd.args(["-t", &(duration * 1000).to_string()]);
-        }
-        cmd.arg(&title).arg(&body);
-        cmd.output().map_err(|e| e.to_string())?;
+        let timeout = if duration > 0 {
+            i32::try_from(duration.saturating_mul(1000)).unwrap_or(i32::MAX)
+        } else {
+            -1
+        };
+        std::thread::spawn(move || {
+            let notification = notify_rust::Notification::new()
+                .appname("rTransmission")
+                .summary(&title)
+                .body(&body)
+                .action("default", "Open")
+                .timeout(timeout)
+                .show();
+
+            match notification {
+                Ok(handle) => handle.wait_for_action(|action| {
+                    if action == "default" {
+                        show_main_window(&app);
+                    }
+                }),
+                Err(error) => log::warn!("Failed to show notification: {error}"),
+            }
+        });
     }
     #[cfg(target_os = "windows")]
     {
@@ -1219,10 +1249,19 @@ fn send_notification(title: String, body: String, duration: u32) -> Result<(), S
              $textNodes.Item(1).AppendChild($template.CreateTextNode('{}')) > $null; \
              $toast = [Windows.UI.Notifications.ToastNotification]::new($template); \
              {} \
-             [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('rTransmission').Show($toast)",
+             $signal = [System.Threading.AutoResetEvent]::new($false); \
+             $null = $toast.add_Activated({{ Start-Process 'rtransmission://notification'; [void]$signal.Set() }}); \
+             $null = $toast.add_Dismissed({{ [void]$signal.Set() }}); \
+             [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('rTransmission').Show($toast); \
+             [void]$signal.WaitOne({})",
             title.replace('\'', "''"),
             body.replace('\'', "''"),
             expiration,
+            if duration > 0 {
+                duration.saturating_mul(1000) as i32
+            } else {
+                -1
+            },
         );
         std::process::Command::new("powershell")
             .args(["-WindowStyle", "Hidden", "-Command", &script])
@@ -1237,6 +1276,19 @@ pub fn run() {
     let cli_file = find_file_in_args(std::env::args().skip(1));
 
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            use tauri::Emitter;
+            if argv
+                .iter()
+                .any(|arg| arg.starts_with("rtransmission://notification"))
+            {
+                show_main_window(app);
+            }
+            if let Some(path) = find_file_in_args(argv.iter().cloned()) {
+                *CLI_FILE.lock().unwrap() = Some(path.clone());
+                let _ = app.emit("file-opened", path);
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -1246,13 +1298,6 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            use tauri::Emitter;
-            if let Some(path) = find_file_in_args(argv.iter().cloned()) {
-                *CLI_FILE.lock().unwrap() = Some(path.clone());
-                let _ = app.emit("file-opened", path);
-            }
-        }))
         .on_window_event(|window, event| {
             if window.label() == "main"
                 && let tauri::WindowEvent::CloseRequested { api, .. } = event
@@ -1298,6 +1343,20 @@ pub fn run() {
             send_notification,
         ])
         .setup(|app| {
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let app_handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    if event
+                        .urls()
+                        .iter()
+                        .any(|url| url.scheme() == "rtransmission")
+                    {
+                        show_main_window(&app_handle);
+                    }
+                });
+            }
+
             let home = std::env::var("HOME")
                 .or_else(|_| std::env::var("USERPROFILE"))
                 .ok()
