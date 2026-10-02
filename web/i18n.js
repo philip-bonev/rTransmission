@@ -202,9 +202,14 @@ const en = {
   'prop.location': 'Location',
   'prop.none': 'None',
   'prop.downloaded_already': 'Already downloaded',
+  'prop.priority': 'Priority',
   'prop.no_files': 'No file information available.',
   'prop.no_torrent': 'No torrent selected.',
   'prop.load_failed': 'Failed to load torrent properties',
+  'priority.low': 'Low',
+  'priority.normal': 'Normal',
+  'priority.high': 'High',
+  'priority.mixed': 'Mixed',
 
   // Common buttons
   'btn.cancel': 'Cancel',
@@ -226,6 +231,7 @@ const en = {
   'error.settings_save_failed': 'Failed to save remote settings: ',
   'error.save_settings': 'Failed to save remote settings',
   'error.file_select_failed': 'Failed to update file selection: ',
+  'error.file_priority_failed': 'Failed to update file priority',
 
   // File picker
   'file_picker.torrent': 'Torrent files',
@@ -442,9 +448,14 @@ const bg = {
   'prop.location': 'Място',
   'prop.none': 'Няма',
   'prop.downloaded_already': 'Вече е свалено',
+  'prop.priority': 'Приоритет',
   'prop.no_files': 'Няма информация за файлове.',
   'prop.no_torrent': 'Няма избран торент.',
   'prop.load_failed': 'Грешка при зареждане',
+  'priority.low': 'Нисък',
+  'priority.normal': 'Нормален',
+  'priority.high': 'Висок',
+  'priority.mixed': 'Смесен',
 
   'btn.cancel': 'Отказ',
   'btn.save': 'Запис',
@@ -464,6 +475,7 @@ const bg = {
   'error.settings_save_failed': 'Грешка при запис на настройките: ',
   'error.save_settings': 'Грешка при запис на настройките',
   'error.file_select_failed': 'Грешка при избор на файл: ',
+  'error.file_priority_failed': 'Грешка при промяна на приоритета на файл',
 
   'file_picker.torrent': 'Торент файлове',
 

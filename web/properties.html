@@ -85,6 +85,15 @@
       color: var(--accent-color);
     }
 
+    .properties-tab:focus-visible,
+    .tree-check:focus-visible,
+    .tree-priority:focus-visible,
+    .file-context-item:focus-visible,
+    .file-confirm-actions button:focus-visible {
+      outline: 2px solid var(--accent-color);
+      outline-offset: 2px;
+    }
+
     #properties-top-panel,
     #properties-bottom-panel {
       flex: 1 1 auto;
@@ -163,10 +172,17 @@
       height: 24px;
       font-size: 12px;
       white-space: nowrap;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     .tree-row:hover {
       background-color: var(--bg-primary);
+    }
+
+    .tree-row.selected,
+    .tree-row.selected:hover {
+      background-color: var(--selected-bg);
     }
 
     .tree-toggle {
@@ -221,6 +237,24 @@
       text-align: right;
     }
 
+    .tree-priority {
+      flex: 0 0 100px;
+      width: 100px;
+      padding: 2px 4px;
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font: inherit;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+    }
+
+    .tree-priority:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
     .tree-children {
       list-style: none;
       margin: 0;
@@ -257,9 +291,15 @@
     }
 
     .file-context-item {
+      display: block;
+      width: 100%;
       padding: 6px 16px;
       font-size: 13px;
+      font-family: inherit;
+      text-align: left;
       color: var(--text-primary);
+      background: none;
+      border: none;
       cursor: pointer;
       user-select: none;
     }
@@ -376,10 +416,10 @@
   </div>
 
   <div id="file-context-menu" class="file-context-menu hidden">
-    <div class="file-context-item" data-action="rename" data-i18n="file_op.rename">Rename</div>
-    <div class="file-context-item" data-action="copy" data-i18n="file_op.copy_path">Copy Path</div>
-    <div class="file-context-item" data-action="move" data-i18n="file_op.move">Move to…</div>
-    <div class="file-context-item" data-action="delete" data-i18n="file_op.delete">Delete</div>
+    <button type="button" class="file-context-item" data-action="rename" data-i18n="file_op.rename">Rename</button>
+    <button type="button" class="file-context-item" data-action="copy" data-i18n="file_op.copy_path">Copy Path</button>
+    <button type="button" class="file-context-item" data-action="move" data-i18n="file_op.move">Move to…</button>
+    <button type="button" class="file-context-item" data-action="delete" data-i18n="file_op.delete">Delete</button>
   </div>
 
   <div id="file-confirm-overlay" class="file-confirm-overlay hidden">

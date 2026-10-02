@@ -102,6 +102,14 @@ function renderDetails(torrent) {
 
 let currentId = null;
 let loadRevision = 0;
+let selectedTreeRow = null;
+
+function selectTreeRow(row) {
+  if (selectedTreeRow === row) return;
+  selectedTreeRow?.classList.remove('selected');
+  selectedTreeRow = row;
+  selectedTreeRow.classList.add('selected');
+}
 
 function buildTree(files) {
   const root = { name: '', children: [], size: 0, done: 0, isDir: true };
@@ -119,6 +127,7 @@ function buildTree(files) {
           size: f.length,
           done: f.bytes_completed,
           wanted: !!f.wanted,
+          priority: f.priority || 'normal',
           index: i,
           isDir: false,
         };
@@ -156,6 +165,9 @@ function refreshFolderStates(node) {
   if (!node.isDir) return;
   let any = false;
   let all = true;
+  let priority = null;
+  let mixedPriority = false;
+  let hasUndownloaded = false;
   for (const c of node.children) {
     if (c.isDir) {
       refreshFolderStates(c);
@@ -165,9 +177,25 @@ function refreshFolderStates(node) {
       all = all && c.wanted;
       any = any || c.wanted;
     }
+    const childHasUndownloaded = c.isDir
+      ? c.hasUndownloaded
+      : c.size <= 0 || c.done < c.size;
+    if (childHasUndownloaded) {
+      hasUndownloaded = true;
+      const childPriority = c.priority;
+      if (childPriority == null) {
+        mixedPriority = true;
+      } else if (priority == null) {
+        priority = childPriority;
+      } else if (priority !== childPriority) {
+        mixedPriority = true;
+      }
+    }
   }
   node.allWanted = all;
   node.anyWanted = any;
+  node.hasUndownloaded = hasUndownloaded;
+  node.priority = mixedPriority ? null : priority;
 }
 
 function collectLeafIndices(node, out) {
@@ -175,6 +203,17 @@ function collectLeafIndices(node, out) {
     if (c.isDir) {
       collectLeafIndices(c, out);
     } else {
+      out.push(c.index);
+    }
+  }
+  return out;
+}
+
+function collectUndownloadedLeafIndices(node, out) {
+  for (const c of node.children) {
+    if (c.isDir) {
+      collectUndownloadedLeafIndices(c, out);
+    } else if (c.size <= 0 || c.done < c.size) {
       out.push(c.index);
     }
   }
@@ -198,13 +237,41 @@ async function setFilesWanted(indices, wanted) {
 
 let fileSelectionUpdating = false;
 
+function setFileTreeControlsDisabled(disabled) {
+  document.querySelectorAll('.tree-check, .tree-priority').forEach(control => {
+    control.disabled = disabled;
+  });
+}
+
 async function updateFileSelection(indices, wanted, apply) {
   if (fileSelectionUpdating) return;
   fileSelectionUpdating = true;
-  document.querySelectorAll('.tree-check').forEach(check => {
-    check.disabled = true;
-  });
+  setFileTreeControlsDisabled(true);
   if (await setFilesWanted(indices, wanted)) {
+    apply();
+    refreshFolderStates(treeRoot);
+  }
+  fileSelectionUpdating = false;
+  renderTree(treeRoot);
+}
+
+async function setFilesPriority(indices, priority) {
+  if (!indices.length) return true;
+  try {
+    await invoke('rpc_set_files_priority', { id: currentId, indices, priority });
+    return true;
+  } catch (error) {
+    console.error('Failed to update file priority:', error);
+    alert(t('error.file_priority_failed') + ': ' + error);
+    return false;
+  }
+}
+
+async function updateFilePriority(indices, priority, apply) {
+  if (fileSelectionUpdating) return;
+  fileSelectionUpdating = true;
+  setFileTreeControlsDisabled(true);
+  if (await setFilesPriority(indices, priority)) {
     apply();
     refreshFolderStates(treeRoot);
   }
@@ -230,6 +297,11 @@ function renderNode(parentUl, node, depth, path) {
   const check = document.createElement('input');
   check.type = 'checkbox';
   check.className = 'tree-check';
+  check.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!check.disabled) check.click();
+  });
 
   const name = document.createElement('span');
   name.className = 'tree-name';
@@ -245,11 +317,30 @@ function renderNode(parentUl, node, depth, path) {
   const fraction = node.size > 0 ? node.done / node.size : 1;
   pct.textContent = formatPercent(fraction);
 
+  const priority = document.createElement('select');
+  priority.className = 'tree-priority';
+  priority.title = t('prop.priority');
+  priority.setAttribute('aria-label', t('prop.priority'));
+  const options = [
+    ['', t('priority.mixed')],
+    ['low', t('priority.low')],
+    ['normal', t('priority.normal')],
+    ['high', t('priority.high')],
+  ];
+  options.forEach(([value, label]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    option.disabled = value === '';
+    priority.appendChild(option);
+  });
+
   row.appendChild(toggle);
   row.appendChild(check);
   row.appendChild(name);
   row.appendChild(size);
   row.appendChild(pct);
+  row.appendChild(priority);
   li.appendChild(row);
 
   if (node.isDir) {
@@ -260,19 +351,34 @@ function renderNode(parentUl, node, depth, path) {
     const dirFullyDownloaded = node.size > 0 && node.done >= node.size;
     check.disabled = dirFullyDownloaded || fileSelectionUpdating;
     check.title = dirFullyDownloaded ? t('prop.downloaded_already') : '';
+    priority.value = node.priority || '';
+    priority.disabled = dirFullyDownloaded || fileSelectionUpdating;
+    priority.title = dirFullyDownloaded ? t('prop.downloaded_already') : t('prop.priority');
     check.addEventListener('change', () => {
       check.indeterminate = false;
       const indices = collectLeafIndices(node, []);
       updateFileSelection(indices, check.checked, () => setSubtree(node, check.checked));
+    });
+    priority.addEventListener('change', () => {
+      const indices = collectUndownloadedLeafIndices(node, []);
+      updateFilePriority(indices, priority.value, () => setSubtreePriority(node, priority.value));
     });
   } else {
     check.checked = node.wanted;
     const fullyDownloaded = node.size > 0 && node.done >= node.size;
     check.disabled = fullyDownloaded || fileSelectionUpdating;
     check.title = fullyDownloaded ? t('prop.downloaded_already') : '';
+    priority.value = node.priority;
+    priority.disabled = fullyDownloaded || fileSelectionUpdating;
+    priority.title = fullyDownloaded ? t('prop.downloaded_already') : t('prop.priority');
     check.addEventListener('change', () => {
       updateFileSelection([node.index], check.checked, () => {
         node.wanted = check.checked;
+      });
+    });
+    priority.addEventListener('change', () => {
+      updateFilePriority([node.index], priority.value, () => {
+        node.priority = priority.value;
       });
     });
   }
@@ -316,11 +422,22 @@ function setSubtree(node, wanted) {
   }
 }
 
+function setSubtreePriority(node, priority) {
+  for (const c of node.children) {
+    if (c.isDir) {
+      setSubtreePriority(c, priority);
+    } else if (c.size <= 0 || c.done < c.size) {
+      c.priority = priority;
+    }
+  }
+}
+
 let treeRoot = null;
 
 function renderTree(root) {
   const container = document.getElementById('properties-files');
   container.innerHTML = '';
+  selectedTreeRow = null;
   const ul = document.createElement('ul');
   ul.className = 'tree';
   root.children.forEach(child => renderNode(ul, child, 0, ''));
@@ -371,13 +488,23 @@ function initTabs() {
     details: document.getElementById('properties-top-panel'),
     files: document.getElementById('properties-bottom-panel'),
   };
+
+  function activateTab(tab) {
+    tabs.forEach(t => t.classList.toggle('active', t === tab));
+    for (const [name, panel] of Object.entries(panels)) {
+      panel.classList.toggle('hidden-tab', name !== tab.dataset.tab);
+    }
+  }
+
   tabs.forEach(tab => {
     tab.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      tabs.forEach(t => t.classList.toggle('active', t === tab));
-      for (const [name, panel] of Object.entries(panels)) {
-        panel.classList.toggle('hidden-tab', name !== tab.dataset.tab);
-      }
+      activateTab(tab);
+    });
+    tab.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      activateTab(tab);
     });
   });
 }
@@ -416,6 +543,7 @@ function showFileConfirm(title, message, defaultValue) {
       okBtn.removeEventListener('mousedown', onOk);
       cancelBtn.removeEventListener('mousedown', onCancel);
       overlay.removeEventListener('mousedown', onBackdrop);
+      overlay.removeEventListener('keydown', onKeydown);
     }
 
     function onOk(e) {
@@ -443,16 +571,31 @@ function showFileConfirm(title, message, defaultValue) {
       }
     }
 
+    function onKeydown(e) {
+      if (e.key === 'Escape') {
+        onCancel(e);
+      } else if (e.key === 'Enter' || (e.key === ' ' && e.target.tagName === 'BUTTON')) {
+        if (e.target === cancelBtn) {
+          onCancel(e);
+        } else {
+          onOk(e);
+        }
+      }
+    }
+
     okBtn.addEventListener('mousedown', onOk);
     cancelBtn.addEventListener('mousedown', onCancel);
     overlay.addEventListener('mousedown', onBackdrop);
+    overlay.addEventListener('keydown', onKeydown);
 
-    if (defaultValue !== undefined) {
-      setTimeout(() => {
+    setTimeout(() => {
+      if (defaultValue !== undefined) {
         inputEl.focus();
         inputEl.select();
-      }, 0);
-    }
+      } else {
+        okBtn.focus();
+      }
+    }, 0);
   });
 }
 
@@ -536,6 +679,7 @@ function showFileContextMenu(e, nodePath, isDir) {
   const py = Math.max(4, Math.min(e.clientY, window.innerHeight - rect.height - 4));
   menu.style.left = px + 'px';
   menu.style.top = py + 'px';
+  menu.querySelector('.file-context-item')?.focus();
 }
 
 function closeFileContextMenu() {
@@ -544,9 +688,18 @@ function closeFileContextMenu() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('properties-files')?.addEventListener('mousedown', (e) => {
+    if (e.button !== 2) return;
+    const row = e.target.closest('.tree-row');
+    if (!row) return;
+    e.preventDefault();
+    selectTreeRow(row);
+  });
+
   document.getElementById('properties-files')?.addEventListener('contextmenu', (e) => {
     const row = e.target.closest('.tree-row');
     if (!row) return;
+    selectTreeRow(row);
     const li = row.closest('li');
     const isDir = li && li.classList.contains('tree-dir');
     const nameEl = row.querySelector('.tree-name');
@@ -567,10 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showFileContextMenu(e, nodePath, isDir);
   });
 
-  document.getElementById('file-context-menu')?.addEventListener('mousedown', (e) => {
-    const item = e.target.closest('.file-context-item');
-    if (!item) return;
-    e.preventDefault();
+  function activateFileContextItem(item) {
     const action = item.dataset.action;
     const path = currentTreePath;
     closeFileContextMenu();
@@ -594,6 +744,21 @@ document.addEventListener('DOMContentLoaded', () => {
         fileOpDelete(fullPath, name);
         break;
     }
+  }
+
+  const fileContextMenu = document.getElementById('file-context-menu');
+  fileContextMenu?.addEventListener('mousedown', (e) => {
+    const item = e.target.closest('.file-context-item');
+    if (!item) return;
+    e.preventDefault();
+    activateFileContextItem(item);
+  });
+  fileContextMenu?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const item = e.target.closest('.file-context-item');
+    if (!item) return;
+    e.preventDefault();
+    activateFileContextItem(item);
   });
 
   document.addEventListener('mousedown', (e) => {
@@ -601,6 +766,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.addEventListener('blur', closeFileContextMenu);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeFileContextMenu();
+  });
 });
 
 listen('properties-data', load).catch(() => {});

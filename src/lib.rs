@@ -23,7 +23,7 @@ use tauri::Manager;
 use tauri::State;
 use transmission_rpc::TransClient;
 use transmission_rpc::types::{
-    BasicAuth, Id, Torrent, TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate,
+    BasicAuth, Id, Priority, Torrent, TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate,
     TorrentGetField, TorrentSetArgs, TorrentStatus,
 };
 
@@ -129,6 +129,7 @@ pub(crate) struct TorrentFile {
     pub length: i64,
     pub bytes_completed: i64,
     pub wanted: bool,
+    pub priority: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -903,6 +904,12 @@ fn map_torrent_to_details(t: Torrent, id: i64) -> TorrentDetails {
                 .map(|s| s.bytes_completed)
                 .unwrap_or(f.bytes_completed),
             wanted: stats.get(i).map(|s| s.wanted).unwrap_or(true),
+            priority: match stats.get(i).map(|s| s.priority) {
+                Some(Priority::Low) => "low",
+                Some(Priority::High) => "high",
+                _ => "normal",
+            }
+            .to_string(),
         })
         .collect();
     TorrentDetails {
@@ -1025,6 +1032,37 @@ async fn rpc_set_files_wanted(
     if !unwanted.is_empty() {
         args = args.files_unwanted(unwanted);
     }
+    let response = client
+        .torrent_set(args, Some(vec![Id::Id(id)]))
+        .await
+        .map_err(|e| format!("RPC error: {}", e))?;
+    if !response.is_ok() {
+        return Err(format!(
+            "Transmission rejected the request: {}",
+            response.result
+        ));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn rpc_set_files_priority(
+    client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+    id: i64,
+    indices: Vec<usize>,
+    priority: String,
+) -> Result<(), String> {
+    if indices.is_empty() {
+        return Ok(());
+    }
+    let args = match priority.as_str() {
+        "low" => TorrentSetArgs::new().priority_low(indices),
+        "normal" => TorrentSetArgs::new().priority_normal(indices),
+        "high" => TorrentSetArgs::new().priority_high(indices),
+        _ => return Err(format!("Unknown file priority: {}", priority)),
+    };
+    let mut guard = client_state.lock().await;
+    let client = guard.as_mut().ok_or("Not connected")?;
     let response = client
         .torrent_set(args, Some(vec![Id::Id(id)]))
         .await
@@ -1251,6 +1289,7 @@ pub fn run() {
             get_properties_torrent_id,
             rpc_get_torrent_details,
             rpc_set_files_wanted,
+            rpc_set_files_priority,
             update_menu_markers,
             file_rename,
             file_delete,
