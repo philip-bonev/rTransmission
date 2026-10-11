@@ -1925,6 +1925,17 @@ pub fn run() {
             return;
         }
 
+        // macOS dock click on an already-running instance (applicationShouldHandleReopen).
+        // Without this the window stays hidden after minimize-to-tray.
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Reopen { .. } = &event
+            && let Some(window) = app_handle.get_webview_window("main")
+        {
+            let _ = window.show();
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+
         #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
         if let tauri::RunEvent::Opened { urls } = event {
             use tauri::Emitter;
