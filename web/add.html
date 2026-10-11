@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/add.css" />
+  <title>Add Torrent</title>
+</head>
+<body>
+  <div class="dialog-header">
+    <h2 id="add-dialog-title" data-i18n="add.title">Add Torrent</h2>
+    <button id="add-close-btn" class="dialog-close-btn">&times;</button>
+  </div>
+  <form id="add-form">
+    <div class="form-group">
+      <label id="add-input-label" for="add-input" data-i18n="add.label_url">URL</label>
+      <div class="add-input-row">
+        <input type="text" id="add-input" placeholder="https://example.com/file.torrent" spellcheck="false" />
+        <button type="button" id="add-browse-btn" class="dialog-btn-secondary hidden" data-i18n="add.browse">Browse</button>
+      </div>
+      <div id="add-error" class="dialog-error hidden"></div>
+    </div>
+    <div class="form-group">
+      <label for="add-download-dir" data-i18n="add.location">Download location (optional)</label>
+      <div class="location-field">
+        <input type="text" id="add-download-dir" placeholder="/path/to/downloads" spellcheck="false" autocomplete="off" />
+        <div id="location-options" class="location-options hidden"></div>
+      </div>
+      <div id="add-free-space" class="dialog-hint hidden"></div>
+    </div>
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="add-pause-after-metadata" />
+        <span data-i18n="add.pause">Pause after metadata is downloaded</span>
+      </label>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" id="add-cancel-btn" class="dialog-btn-secondary" data-i18n="btn.cancel">Cancel</button>
+      <button type="submit" class="dialog-btn-primary" data-i18n="btn.add">Add</button>
+    </div>
+  </form>
+  <script src="/i18n.js"></script>
+  <script src="/add.js" defer></script>
+</body>
+</html>

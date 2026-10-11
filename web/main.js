@@ -15,7 +15,6 @@
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
-const { open } = window.__TAURI__.dialog;
 
 let connected = false;
 const selectedIds = new Set();
@@ -73,13 +72,6 @@ function formatSpeed(bytesPerSec) {
   const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
   const i = Math.floor(Math.log(bytesPerSec) / Math.log(1024));
   return (bytesPerSec / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
-}
-
-function formatBytes(bytes) {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
 }
 
 function getStatusClass(status) {
@@ -314,14 +306,6 @@ async function getSettings() {
   }
 }
 
-async function setSettings(settings) {
-  try {
-    await invoke('set_settings', { newSettings: settings });
-  } catch (error) {
-    console.error('Failed to save settings:', error);
-  }
-}
-
 let currentTheme = 'auto';
 
 function applyTheme(theme) {
@@ -370,44 +354,20 @@ async function disconnect() {
   }
 }
 
-function showAddError(message) {
-  const el = document.getElementById('add-error');
-  el.textContent = message;
-  el.classList.remove('hidden');
-}
-
-function clearAddError() {
-  const el = document.getElementById('add-error');
-  el.textContent = '';
-  el.classList.add('hidden');
-}
-
-function reportAddError(message) {
-  const overlayOpen = !document.getElementById('add-overlay').classList.contains('hidden');
-  if (overlayOpen) {
-    showAddError(message);
-  } else {
-    alert(message);
-  }
-}
-
-async function addTorrent(input, downloadDir = null, pauseAfterMetadata = false) {
-  if (!connected) {
-    reportAddError(t('error.connect_first'));
-    return false;
+async function openAddWindow(mode, prefill = '') {
+  const dirs = [];
+  const seen = new Set();
+  for (const tor of torrentsCache) {
+    if (tor.download_dir && !seen.has(tor.download_dir)) {
+      seen.add(tor.download_dir);
+      dirs.push(tor.download_dir);
+    }
   }
   try {
-    await invoke('validate_torrent_input', { input });
+    await invoke('open_add_window', { mode, prefill, dirs, connected });
   } catch (error) {
-    reportAddError(String(error || t('error.invalid_input')));
-    return false;
-  }
-  try {
-    await invoke('rpc_add_torrent', { input, downloadDir, pauseAfterMetadata });
-    return true;
-  } catch (error) {
-    reportAddError(String(error || t('error.add_failed')));
-    return false;
+    console.error('Failed to open add window:', error);
+    alert(String(error));
   }
 }
 
@@ -416,192 +376,23 @@ async function handleIncomingTorrent(input) {
   if (!value) return;
   const lower = value.toLowerCase();
   if (lower.startsWith('magnet:')) {
-    openAddDialog(t('add.title_magnet'), t('add.label_magnet'), 'magnet:?xt=urn:btih:...', false, value);
+    await openAddWindow('magnet', value);
   } else if (lower.startsWith('http://') || lower.startsWith('https://')) {
-    openAddDialog(t('add.title_url'), t('add.label_url'), 'https://example.com/file.torrent', false, value);
+    await openAddWindow('url', value);
   } else {
-    openAddDialog(t('add.title_file'), t('add.label_file'), '/path/to/file.torrent', true, value);
+    await openAddWindow('file', value);
   }
 }
 
-async function addTorrentFile() {
-  openAddFileDialog();
-}
-
-function openAddFileDialog() {
-  openAddDialog(t('add.title_file'), t('add.label_file'), '/path/to/file.torrent', true);
-}
-
-function getLastDownloadDirs() {
+async function openDeleteWindow() {
+  const ids = getSelectedIds();
+  if (ids.length === 0) return;
   try {
-    const raw = localStorage.getItem('lastDownloadDirs');
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+    await invoke('open_delete_window', { ids });
+  } catch (error) {
+    console.error('Failed to open delete window:', error);
+    alert(String(error));
   }
-}
-
-function getDownloadDirOptions() {
-  const seen = new Map();
-  for (const dir of getLastDownloadDirs()) {
-    if (dir) seen.set(dir, true);
-  }
-  for (const t of torrentsCache) {
-    if (t.download_dir) seen.set(t.download_dir, true);
-  }
-  return Array.from(seen.keys());
-}
-
-let locationActiveIndex = -1;
-
-function renderLocationOptions() {
-  const container = document.getElementById('location-options');
-  const input = document.getElementById('add-download-dir');
-  const query = input.value.trim().toLowerCase();
-  const dirs = getDownloadDirOptions().filter((d) => !query || d.toLowerCase().includes(query));
-  container.innerHTML = '';
-  dirs.forEach((dir) => {
-    const opt = document.createElement('div');
-    opt.className = 'location-option';
-    opt.textContent = dir;
-    opt.title = dir;
-    opt.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      input.value = dir;
-      closeLocationOptions();
-      updateFreeSpace();
-    });
-    container.appendChild(opt);
-  });
-  locationActiveIndex = -1;
-  return dirs;
-}
-
-function openLocationOptions() {
-  const container = document.getElementById('location-options');
-  if (renderLocationOptions().length > 0) {
-    container.classList.remove('hidden');
-  } else {
-    container.classList.add('hidden');
-  }
-}
-
-function closeLocationOptions() {
-  document.getElementById('location-options').classList.add('hidden');
-  locationActiveIndex = -1;
-}
-
-function moveLocationSelection(delta) {
-  const options = document.querySelectorAll('#location-options .location-option');
-  if (options.length === 0) return;
-  locationActiveIndex = (locationActiveIndex + delta + options.length) % options.length;
-  options.forEach((opt, i) => opt.classList.toggle('active', i === locationActiveIndex));
-  options[locationActiveIndex].scrollIntoView({ block: 'nearest' });
-}
-
-function populateDownloadDirOptions() {
-  renderLocationOptions();
-}
-
-function saveLastDownloadDir(dir) {
-  const list = getLastDownloadDirs().filter(d => d !== dir);
-  list.unshift(dir);
-  localStorage.setItem('lastDownloadDirs', JSON.stringify(list.slice(0, 10)));
-}
-
-function updateFreeSpace() {
-  const el = document.getElementById('add-free-space');
-  const path = document.getElementById('add-download-dir').value.trim();
-  if (!path || !connected) {
-    el.textContent = '';
-    el.classList.add('hidden');
-    return;
-  }
-  el.textContent = t('add.checking_free_space');
-  invoke('rpc_get_free_space', { path })
-    .then(bytes => {
-      el.textContent = `${t('add.free_space')}: ${formatBytes(bytes)}`;
-      el.classList.remove('hidden');
-    })
-    .catch(() => {
-      el.textContent = '';
-      el.classList.add('hidden');
-    });
-}
-
-async function openAddDialog(title, label, placeholder, browse = false, prefill = '') {
-  document.getElementById('add-dialog-title').textContent = title;
-  document.getElementById('add-input-label').textContent = label;
-  const input = document.getElementById('add-input');
-  input.placeholder = placeholder;
-  input.value = prefill;
-  document.getElementById('add-browse-btn').classList.toggle('hidden', !browse);
-  const settings = await getSettings();
-  document.getElementById('add-download-dir').value = settings.default_download_dir || '';
-  populateDownloadDirOptions();
-  clearAddError();
-  updateFreeSpace();
-  document.getElementById('add-overlay').classList.remove('hidden');
-  input.focus();
-}
-
-function closeAddDialog() {
-  closeLocationOptions();
-  document.getElementById('add-overlay').classList.add('hidden');
-}
-
-const remoteInputIds = [
-  'session-dl-queue-size', 'session-seed-ratio-limit', 'session-idle-seeding-limit',
-  'session-speed-dl', 'session-speed-ul', 'session-alt-dl', 'session-alt-ul',
-];
-
-function openSettingsDialog() {
-  getSettings().then(async (settings) => {
-    document.getElementById('default-download-dir').value = settings.default_download_dir || '';
-    document.getElementById('theme-select').value = settings.theme || 'auto';
-    document.getElementById('notifications-enabled').checked = settings.notifications_enabled !== false;
-    document.getElementById('notification-duration').value = settings.notification_duration || 5;
-    document.getElementById('minimize-to-tray').checked = settings.minimize_to_tray !== false;
-    remoteInputIds.forEach(id => {
-      document.getElementById(id).disabled = !connected;
-    });
-    if (connected) {
-      try {
-        const ss = await invoke('rpc_get_session_settings');
-        document.getElementById('session-dl-queue-size').value = ss.download_queue_size;
-        document.getElementById('session-seed-ratio-limit').value = ss.seed_ratio_limit;
-        document.getElementById('session-idle-seeding-limit').value = ss.idle_seeding_limit;
-        document.getElementById('session-speed-dl').value = ss.speed_limit_down;
-        document.getElementById('session-speed-ul').value = ss.speed_limit_up;
-        document.getElementById('session-alt-dl').value = ss.alt_speed_down;
-        document.getElementById('session-alt-ul').value = ss.alt_speed_up;
-      } catch (e) {
-        console.error('Failed to load session settings:', e);
-      }
-    } else {
-      remoteInputIds.forEach(id => {
-        document.getElementById(id).value = '';
-      });
-    }
-    document.getElementById('settings-overlay').classList.remove('hidden');
-  });
-}
-
-function closeSettingsDialog() {
-  document.getElementById('settings-overlay').classList.add('hidden');
-}
-
-function openDeleteDialog() {
-  if (selectedIds.size === 0) return;
-  const count = selectedIds.size;
-  document.getElementById('delete-count').textContent =
-    count === 1 ? t('delete.confirm_one') : t('delete.confirm_many', { count });
-  document.getElementById('delete-data-checkbox').checked = false;
-  document.getElementById('delete-overlay').classList.remove('hidden');
-}
-
-function closeDeleteDialog() {
-  document.getElementById('delete-overlay').classList.add('hidden');
 }
 
 function updateContextMenuChecks() {
@@ -644,31 +435,6 @@ async function runTorrentAction(command, args) {
   }
 }
 
-function openConnectionSettings() {
-  const overlay = document.getElementById('connection-settings-overlay');
-  overlay.classList.remove('hidden');
-  getSettings().then(settings => {
-    document.getElementById('rpc-host').value = settings.rpc_host;
-    document.getElementById('rpc-port').value = settings.rpc_port;
-    document.getElementById('rpc-auth').checked = settings.rpc_auth;
-    document.getElementById('rpc-username').value = settings.rpc_username;
-    document.getElementById('rpc-password').value = settings.rpc_password;
-    document.getElementById('rpc-https').checked = settings.rpc_https;
-    document.getElementById('rpc-insecure').checked = settings.rpc_insecure;
-    document.getElementById('rpc-auto-connect').checked = settings.auto_connect;
-    toggleAuthFields();
-  });
-}
-
-function closeConnectionSettings() {
-  document.getElementById('connection-settings-overlay').classList.add('hidden');
-}
-
-function toggleAuthFields() {
-  const checked = document.getElementById('rpc-auth').checked;
-  document.getElementById('auth-fields').classList.toggle('hidden', !checked);
-}
-
 window.addEventListener('DOMContentLoaded', async () => {
   const settings = await getSettings();
   currentTheme = settings.theme || 'auto';
@@ -679,34 +445,50 @@ window.addEventListener('DOMContentLoaded', async () => {
     applyTheme(currentTheme);
   });
 
+  await listen('settings-changed', async () => {
+    const s = await getSettings();
+    currentTheme = s.theme || 'auto';
+    notificationsEnabled = s.notifications_enabled !== false;
+    notificationDuration = s.notification_duration || 5;
+    applyTheme(currentTheme);
+  });
+
     document.getElementById('connect-btn')?.addEventListener('click', () => {
       connect();
     });
   document.getElementById('disconnect-btn')?.addEventListener('click', disconnect);
 
   document.getElementById('add-url-btn')?.addEventListener('click', () => {
-    openAddDialog(t('add.title_url'), t('add.label_url'), 'https://example.com/file.torrent');
+    openAddWindow('url');
   });
   document.getElementById('add-magnet-btn')?.addEventListener('click', () => {
-    openAddDialog(t('add.title_magnet'), t('add.label_magnet'), 'magnet:?xt=urn:btih:...');
+    openAddWindow('magnet');
   });
-  document.getElementById('add-file-btn')?.addEventListener('click', addTorrentFile);
+  document.getElementById('add-file-btn')?.addEventListener('click', () => {
+    openAddWindow('file');
+  });
 
-  await listen('menu-connection-settings', openConnectionSettings);
+  await listen('menu-connection-settings', () => {
+    invoke('open_connection_settings_window').catch((error) => {
+      console.error('Failed to open connection settings:', error);
+    });
+  });
   await listen('menu-add-url', () => {
-    openAddDialog(t('add.title_url'), t('add.label_url'), 'https://example.com/file.torrent');
+    openAddWindow('url');
   });
   await listen('menu-add-magnet', () => {
-    openAddDialog(t('add.title_magnet'), t('add.label_magnet'), 'magnet:?xt=urn:btih:...');
+    openAddWindow('magnet');
   });
-  await listen('menu-add-file', addTorrentFile);
+  await listen('menu-add-file', () => {
+    openAddWindow('file');
+  });
   await listen('menu-play', () => {
     runTorrentAction('rpc_torrent_action', { action: 'start', ids: getSelectedIds() });
   });
   await listen('menu-pause', () => {
     runTorrentAction('rpc_torrent_action', { action: 'pause', ids: getSelectedIds() });
   });
-  await listen('menu-delete', openDeleteDialog);
+  await listen('menu-delete', openDeleteWindow);
   await listen('menu-verify', () => {
     runTorrentAction('rpc_torrent_action', { action: 'verify', ids: getSelectedIds() });
   });
@@ -735,7 +517,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('pause-btn')?.addEventListener('click', () => {
     runTorrentAction('rpc_torrent_action', { action: 'pause', ids: getSelectedIds() });
   });
-  document.getElementById('delete-btn')?.addEventListener('click', openDeleteDialog);
+  document.getElementById('delete-btn')?.addEventListener('click', openDeleteWindow);
 
   document.getElementById('verify-btn')?.addEventListener('click', () => {
     runTorrentAction('rpc_torrent_action', { action: 'verify', ids: getSelectedIds() });
@@ -875,7 +657,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (item.dataset.action) {
       const action = item.dataset.action;
       if (action === 'delete') {
-        openDeleteDialog();
+        openDeleteWindow();
       } else {
         const rpcAction = action === 'play' ? 'start' : action;
         runTorrentAction('rpc_torrent_action', { action: rpcAction, ids: getSelectedIds() });
@@ -913,10 +695,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     closeContextMenu();
-    closeAddDialog();
-    closeSettingsDialog();
-    closeConnectionSettings();
-    closeDeleteDialog();
   });
 
   window.addEventListener('keydown', (e) => {
@@ -934,161 +712,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     applySelection();
   });
 
-  document.getElementById('connection-settings-btn')?.addEventListener('click', openConnectionSettings);
-  document.getElementById('connection-settings-close-btn')?.addEventListener('click', closeConnectionSettings);
-  document.getElementById('connection-settings-cancel-btn')?.addEventListener('click', closeConnectionSettings);
-  document.getElementById('connection-settings-overlay')?.addEventListener('mousedown', (e) => {
-    if (e.target === e.currentTarget) closeConnectionSettings();
-  });
-  document.getElementById('rpc-auth')?.addEventListener('change', toggleAuthFields);
-
-  document.getElementById('settings-btn')?.addEventListener('click', openSettingsDialog);
-  document.getElementById('settings-close-btn')?.addEventListener('click', closeSettingsDialog);
-  document.getElementById('settings-cancel-btn')?.addEventListener('click', closeSettingsDialog);
-  document.getElementById('settings-overlay')?.addEventListener('mousedown', (e) => {
-    if (e.target === e.currentTarget) closeSettingsDialog();
-  });
-  document.getElementById('settings-form')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-  });
-  document.getElementById('test-notification-btn')?.addEventListener('click', () => {
-    invoke('send_notification', { title: 'rTransmission', body: t('notify.test'), duration: notificationDuration });
-  });
-  document.getElementById('settings-save-btn')?.addEventListener('click', async () => {
-    const current = await getSettings();
-    current.default_download_dir =
-      document.getElementById('default-download-dir').value.trim() || null;
-    current.theme = document.getElementById('theme-select').value;
-    current.notifications_enabled = document.getElementById('notifications-enabled').checked;
-    current.notification_duration = parseInt(document.getElementById('notification-duration').value) || 5;
-    current.minimize_to_tray = document.getElementById('minimize-to-tray').checked;
-    await setSettings(current);
-    notificationsEnabled = current.notifications_enabled;
-    notificationDuration = current.notification_duration;
-    currentTheme = current.theme;
-    applyTheme(currentTheme);
-    if (connected) {
-      try {
-        const speedDl = parseInt(document.getElementById('session-speed-dl').value) || 0;
-        const speedUl = parseInt(document.getElementById('session-speed-ul').value) || 0;
-        await invoke('rpc_set_session_settings', {
-          settings: {
-            download_queue_size: parseInt(document.getElementById('session-dl-queue-size').value) || 5,
-            download_queue_enabled: true,
-            seed_ratio_limit: parseFloat(document.getElementById('session-seed-ratio-limit').value) || 2.0,
-            seed_ratio_limited: true,
-            idle_seeding_limit: parseInt(document.getElementById('session-idle-seeding-limit').value) || 30,
-            idle_seeding_limit_enabled: true,
-            speed_limit_down: speedDl,
-            speed_limit_down_enabled: speedDl > 0,
-            speed_limit_up: speedUl,
-            speed_limit_up_enabled: speedUl > 0,
-            alt_speed_down: parseInt(document.getElementById('session-alt-dl').value) || 50,
-            alt_speed_up: parseInt(document.getElementById('session-alt-ul').value) || 50,
-          },
-        });
-      } catch (e) {
-        console.error('Failed to save session settings:', e);
-        alert(`${t('error.save_settings')}: ` + e);
-      }
-    }
-    closeSettingsDialog();
+  document.getElementById('connection-settings-btn')?.addEventListener('click', () => {
+    invoke('open_connection_settings_window').catch((error) => {
+      console.error('Failed to open connection settings:', error);
+    });
   });
 
-  document.getElementById('connection-settings-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const settings = {
-      rpc_host: document.getElementById('rpc-host').value,
-      rpc_port: parseInt(document.getElementById('rpc-port').value) || 9091,
-      rpc_auth: document.getElementById('rpc-auth').checked,
-      rpc_username: document.getElementById('rpc-username').value,
-      rpc_password: document.getElementById('rpc-password').value,
-      rpc_https: document.getElementById('rpc-https').checked,
-      rpc_insecure: document.getElementById('rpc-insecure').checked,
-      auto_connect: document.getElementById('rpc-auto-connect').checked,
-    };
-    await setSettings(settings);
-    closeConnectionSettings();
+  document.getElementById('settings-btn')?.addEventListener('click', () => {
+    invoke('open_settings_window').catch((error) => {
+      console.error('Failed to open settings:', error);
+    });
   });
-
-  document.getElementById('add-browse-btn')?.addEventListener('click', async () => {
-    try {
-      const path = await open({
-        multiple: false,
-        filters: [{ name: 'Torrent files', extensions: ['torrent', 'magnet'] }],
-      });
-      if (path) {
-        document.getElementById('add-input').value = path;
-        clearAddError();
-      }
-    } catch (error) {
-      console.error('Failed to pick file:', error);
-    }
-  });
-
-  document.getElementById('add-input')?.addEventListener('input', clearAddError);
-
-  let freeSpaceTimer = null;
-  const downloadDirInput = document.getElementById('add-download-dir');
-  downloadDirInput?.addEventListener('focus', openLocationOptions);
-  downloadDirInput?.addEventListener('input', () => {
-    openLocationOptions();
-    clearTimeout(freeSpaceTimer);
-    freeSpaceTimer = setTimeout(updateFreeSpace, 400);
-  });
-  downloadDirInput?.addEventListener('blur', closeLocationOptions);
-  downloadDirInput?.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      moveLocationSelection(1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      moveLocationSelection(-1);
-    } else if (e.key === 'Enter' && locationActiveIndex >= 0) {
-      e.preventDefault();
-      const active = document.querySelectorAll('#location-options .location-option')[locationActiveIndex];
-      if (active) {
-        downloadDirInput.value = active.textContent;
-        closeLocationOptions();
-        updateFreeSpace();
-      }
-    } else if (e.key === 'Escape') {
-      closeLocationOptions();
-    }
-  });
-
-  document.getElementById('add-close-btn')?.addEventListener('click', closeAddDialog);
-  document.getElementById('add-cancel-btn')?.addEventListener('click', closeAddDialog);
-  document.getElementById('add-overlay')?.addEventListener('mousedown', (e) => {
-    if (e.target === e.currentTarget) closeAddDialog();
-  });
-  document.getElementById('add-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const value = document.getElementById('add-input').value.trim();
-    if (!value) {
-      showAddError(t('add.empty_input'));
-      return;
-    }
-    clearAddError();
-    const downloadDir = document.getElementById('add-download-dir').value.trim() || null;
-    if (downloadDir) saveLastDownloadDir(downloadDir);
-    const pauseAfterMetadata = document.getElementById('add-pause-after-metadata').checked;
-    const ok = await addTorrent(value, downloadDir, pauseAfterMetadata);
-    if (ok) closeAddDialog();
-  });
-
-  document.getElementById('delete-close-btn')?.addEventListener('click', closeDeleteDialog);
-  document.getElementById('delete-cancel-btn')?.addEventListener('click', closeDeleteDialog);
-  document.getElementById('delete-overlay')?.addEventListener('mousedown', (e) => {
-    if (e.target === e.currentTarget) closeDeleteDialog();
-  });
-  document.getElementById('delete-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const deleteData = document.getElementById('delete-data-checkbox').checked;
-    closeDeleteDialog();
-    await runTorrentAction('rpc_torrent_remove', { ids: getSelectedIds(), deleteData });
-  });
-
   await listen('torrents-update', (event) => {
     checkTorrentNotifications(event.payload);
     renderTorrents(event.payload);
@@ -1172,32 +806,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  async function openAboutDialog() {
-    try {
-      const info = await invoke('get_about_info');
-      document.getElementById('about-version').textContent = `v${info.version}`;
-      document.getElementById('about-date').textContent = `${t('about.build_date')}: ${info.build_date}`;
-      document.getElementById('about-license').textContent = info.license;
-    } catch (e) {
-      console.error('Failed to load about info:', e);
-    }
-    document.getElementById('about-overlay').classList.remove('hidden');
-  }
-
-  function closeAboutDialog() {
-    document.getElementById('about-overlay').classList.add('hidden');
-  }
-
-  document.getElementById('about-close-btn')?.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    closeAboutDialog();
+  await listen('menu-about', () => {
+    invoke('open_about_window').catch((error) => {
+      console.error('Failed to open about window:', error);
+    });
   });
-  document.getElementById('about-overlay')?.addEventListener('mousedown', (e) => {
-    if (e.target === e.currentTarget) closeAboutDialog();
-  });
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeAboutDialog();
-  });
-
-  await listen('menu-about', openAboutDialog);
 });

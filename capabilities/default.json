@@ -3,13 +3,20 @@
   "identifier": "default",
   "description": "enables the default permissions",
   "windows": [
-    "main"
+    "main",
+    "properties",
+    "settings",
+    "connection-settings",
+    "add",
+    "delete",
+    "about"
   ],
   "permissions": [
     "core:default",
     "core:window:allow-show",
     "core:window:allow-hide",
     "core:window:allow-set-focus",
+    "core:window:allow-set-title",
     "opener:default",
     "dialog:default",
     "fs:default",

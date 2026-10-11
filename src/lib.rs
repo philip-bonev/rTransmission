@@ -95,11 +95,24 @@ impl Default for Settings {
 
 static CLI_FILE: Mutex<Option<String>> = Mutex::new(None);
 static PROPERTIES_ID: Mutex<Option<i64>> = Mutex::new(None);
+static ADD_PAYLOAD: Mutex<Option<serde_json::Value>> = Mutex::new(None);
+static DELETE_IDS: Mutex<Option<Vec<i64>>> = Mutex::new(None);
 
 fn show_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.set_focus();
+    }
+}
+
+/// Show the main window if it is hidden (e.g. minimized to tray) so dialog
+/// windows are always centered on a visible parent. Does not steal focus —
+/// the dialog being opened takes focus afterwards.
+fn ensure_main_visible(app: &tauri::AppHandle) {
+    if let Some(main) = app.get_webview_window("main")
+        && !main.is_visible().unwrap_or(true)
+    {
+        let _ = main.show();
     }
 }
 
@@ -773,6 +786,8 @@ fn set_settings(
             .map_err(|e| format!("Failed to update tray icon visibility: {e}"))?;
     }
 
+    let _ = app.emit("settings-changed", ());
+
     Ok(())
 }
 
@@ -969,53 +984,193 @@ async fn rpc_get_torrent_details(
     fetch_torrent_details(client, id).await
 }
 
+fn center_on_main(app: &tauri::AppHandle, window: &tauri::WebviewWindow, w: f64, h: f64) {
+    ensure_main_visible(app);
+    if let Some(main) = app.get_webview_window("main")
+        && let (Ok(mpos), Ok(msize)) = (main.outer_position(), main.outer_size())
+    {
+        let cx = mpos.x as f64 + (msize.width as f64 - w) / 2.0;
+        let cy = mpos.y as f64 + (msize.height as f64 - h) / 2.0;
+        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+            x: cx as i32,
+            y: cy as i32,
+        }));
+    }
+}
+
+struct DialogWindowSpec<'a> {
+    label: &'a str,
+    url: &'a str,
+    title: &'a str,
+    size: (f64, f64),
+    min_size: (f64, f64),
+}
+
+fn open_dialog_window(
+    app: &tauri::AppHandle,
+    spec: &DialogWindowSpec,
+) -> Result<tauri::WebviewWindow, String> {
+    let (w, h) = spec.size;
+    let (min_w, min_h) = spec.min_size;
+    if let Some(window) = app.get_webview_window(spec.label) {
+        center_on_main(app, &window, w, h);
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(window);
+    }
+    let window =
+        tauri::WebviewWindowBuilder::new(app, spec.label, tauri::WebviewUrl::App(spec.url.into()))
+            .title(spec.title)
+            .inner_size(w, h)
+            .min_inner_size(min_w, min_h)
+            .build()
+            .map_err(|e| e.to_string())?;
+    center_on_main(app, &window, w, h);
+    window.set_focus().map_err(|e| e.to_string())?;
+    Ok(window)
+}
+
+#[tauri::command]
+fn close_dialog_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() == "main" {
+        return Err("Refusing to close the main window".to_string());
+    }
+    window.destroy().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn is_connected(
+    client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+) -> Result<bool, String> {
+    Ok(client_state.lock().await.is_some())
+}
+
+#[tauri::command]
+fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
+    open_dialog_window(
+        &app,
+        &DialogWindowSpec {
+            label: "settings",
+            url: "settings.html",
+            title: "Settings",
+            size: (560.0, 680.0),
+            min_size: (400.0, 480.0),
+        },
+    )
+    .map(|_| ())
+}
+
+#[tauri::command]
+fn open_connection_settings_window(app: tauri::AppHandle) -> Result<(), String> {
+    open_dialog_window(
+        &app,
+        &DialogWindowSpec {
+            label: "connection-settings",
+            url: "connection-settings.html",
+            title: "Connection Settings",
+            size: (440.0, 560.0),
+            min_size: (380.0, 480.0),
+        },
+    )
+    .map(|_| ())
+}
+
+#[tauri::command]
+fn open_about_window(app: tauri::AppHandle) -> Result<(), String> {
+    open_dialog_window(
+        &app,
+        &DialogWindowSpec {
+            label: "about",
+            url: "about.html",
+            title: "About rTransmission Client",
+            size: (440.0, 320.0),
+            min_size: (360.0, 280.0),
+        },
+    )
+    .map(|_| ())
+}
+
+#[tauri::command]
+fn open_add_window(
+    app: tauri::AppHandle,
+    mode: String,
+    prefill: String,
+    dirs: Vec<String>,
+    connected: bool,
+) -> Result<(), String> {
+    let payload = serde_json::json!({ "mode": mode, "prefill": prefill, "dirs": dirs, "connected": connected });
+    *ADD_PAYLOAD.lock().unwrap() = Some(payload.clone());
+    if let Some(window) = app.get_webview_window("add") {
+        let _ = window.emit("add-data", payload);
+        center_on_main(&app, &window, 520.0, 420.0);
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    open_dialog_window(
+        &app,
+        &DialogWindowSpec {
+            label: "add",
+            url: "add.html",
+            title: "Add Torrent",
+            size: (520.0, 420.0),
+            min_size: (420.0, 360.0),
+        },
+    )
+    .map(|_| ())
+}
+
+#[tauri::command]
+fn get_add_payload() -> Option<serde_json::Value> {
+    ADD_PAYLOAD.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn open_delete_window(app: tauri::AppHandle, ids: Vec<i64>) -> Result<(), String> {
+    *DELETE_IDS.lock().unwrap() = Some(ids.clone());
+    if let Some(window) = app.get_webview_window("delete") {
+        let _ = window.emit("delete-data", ids);
+        center_on_main(&app, &window, 400.0, 240.0);
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    open_dialog_window(
+        &app,
+        &DialogWindowSpec {
+            label: "delete",
+            url: "delete.html",
+            title: "Remove Torrents",
+            size: (400.0, 240.0),
+            min_size: (320.0, 200.0),
+        },
+    )
+    .map(|_| ())
+}
+
+#[tauri::command]
+fn get_delete_ids() -> Option<Vec<i64>> {
+    DELETE_IDS.lock().unwrap().clone()
+}
+
 #[tauri::command]
 fn open_properties_window(app: tauri::AppHandle, id: i64) -> Result<(), String> {
     *PROPERTIES_ID.lock().unwrap() = Some(id);
 
     if let Some(window) = app.get_webview_window("properties") {
         let _ = window.emit("properties-data", ());
-        if let Some(main) = app.get_webview_window("main")
-            && let (Ok(mpos), Ok(msize)) = (main.outer_position(), main.outer_size())
-        {
-            let pw = 760.0_f64;
-            let ph = 680.0_f64;
-            let cx = mpos.x as f64 + (msize.width as f64 - pw) / 2.0;
-            let cy = mpos.y as f64 + (msize.height as f64 - ph) / 2.0;
-            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                x: cx as i32,
-                y: cy as i32,
-            }));
-        }
+        center_on_main(&app, &window, 760.0, 680.0);
         window.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
     }
-    let window = tauri::WebviewWindowBuilder::new(
+    open_dialog_window(
         &app,
-        "properties",
-        tauri::WebviewUrl::App("properties.html".into()),
+        &DialogWindowSpec {
+            label: "properties",
+            url: "properties.html",
+            title: "Torrent Properties",
+            size: (760.0, 680.0),
+            min_size: (480.0, 420.0),
+        },
     )
-    .title("Torrent Properties")
-    .inner_size(760.0, 680.0)
-    .min_inner_size(480.0, 420.0)
-    .build()
-    .map_err(|e| e.to_string())?;
-
-    if let Some(main) = app.get_webview_window("main")
-        && let (Ok(mpos), Ok(msize)) = (main.outer_position(), main.outer_size())
-    {
-        let pw = 760.0_f64;
-        let ph = 680.0_f64;
-        let cx = mpos.x as f64 + (msize.width as f64 - pw) / 2.0;
-        let cy = mpos.y as f64 + (msize.height as f64 - ph) / 2.0;
-        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-            x: cx as i32,
-            y: cy as i32,
-        }));
-    }
-
-    window.set_focus().map_err(|e| e.to_string())?;
-    Ok(())
+    .map(|_| ())
 }
 
 #[tauri::command]
@@ -1294,7 +1449,14 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_denylist(&["properties"])
+                .with_denylist(&[
+                    "properties",
+                    "settings",
+                    "connection-settings",
+                    "add",
+                    "delete",
+                    "about",
+                ])
                 .build(),
         )
         .plugin(tauri_plugin_deep_link::init())
@@ -1332,6 +1494,15 @@ pub fn run() {
             rpc_get_free_space,
             open_properties_window,
             get_properties_torrent_id,
+            open_settings_window,
+            open_connection_settings_window,
+            open_about_window,
+            open_add_window,
+            get_add_payload,
+            open_delete_window,
+            get_delete_ids,
+            close_dialog_window,
+            is_connected,
             rpc_get_torrent_details,
             rpc_set_files_wanted,
             rpc_set_files_priority,
@@ -1740,6 +1911,20 @@ pub fn run() {
 
     #[allow(unused_variables)]
     app.run(|app_handle, event| {
+        // Closing the last window must not kill the app when minimize-to-tray is
+        // active. Programmatic exits (tray quit / app.exit) carry code: Some and
+        // always proceed. Menu Quit on macOS uses NSApplication terminate and
+        // never reaches this handler.
+        if let tauri::RunEvent::ExitRequested {
+            code: None, api, ..
+        } = &event
+            && let Some(state) = app_handle.try_state::<Mutex<AppState>>()
+            && state.lock().unwrap().settings.minimize_to_tray
+        {
+            api.prevent_exit();
+            return;
+        }
+
         #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
         if let tauri::RunEvent::Opened { urls } = event {
             use tauri::Emitter;
