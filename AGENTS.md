@@ -49,6 +49,7 @@
 - **Build Production:** `cargo tauri build` (bundle appears under `target/release/bundle/`).
 - **macOS PATH:** The opencode shell session may lack `/usr/bin` in `$PATH`. If a system tool (like `cc`, `ditto`, `rm`, etc.) is not found, ask the user to run the command in their terminal or prefix it with `PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/Users/fi4o/.cargo/bin:/usr/bin:/usr/sbin:/bin:/sbin:$PATH"`.
 - **macOS install after build:** `ditto "target/release/bundle/macos/rTransmission Client.app" "/Applications/rTransmission Client.app"`
+- **macOS code signing (required for Local Network):** Since the macOS 27 update, ad-hoc signed builds cannot reach LAN hosts like the Transmission daemon (TCC Local Network permission is never remembered for a CDHash identity). `bundle.macOS.signingIdentity` in `tauri.conf.json` signs every build with the self-signed "rTransmission Dev" certificate. On a new Mac, create that certificate first: Keychain Access → Certificate Assistant → Create a Certificate → name "rTransmission Dev", type Code Signing (or `openssl` self-signed cert + `security import` + `security add-trusted-cert -r trustRoot -p codeSign`), then `tccutil reset LocalNetwork com.bonev.philip.rtransmission-client`, launch the app from Finder and accept the Local Network prompt. `macos/Info.plist` supplies `NSLocalNetworkUsageDescription` so the prompt actually appears.
 - **Lint Rust:** `cargo clippy`
 - **Format Rust:** `cargo fmt`
 - **Verify JS:** `node --check web/<file>.js`
