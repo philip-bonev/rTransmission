@@ -7,9 +7,9 @@
 
 ## 2. Tech Stack & Architecture
 - **Framework:** Tauri v2 (Rust backend + WebView frontend). Rust edition 2024.
-- **Backend:** `/src/lib.rs` (single file, ~1450 lines). Talks to a Transmission daemon via the `transmission-rpc` crate; low-level HTTP via `reqwest` (rustls). `src/main.rs` just calls `lib::run()`.
+- **Backend:** Rust sources split into small modules under `/src` (see section 3.1). Talks to a Transmission daemon via the `transmission-rpc` crate; low-level HTTP via `reqwest` (rustls). `src/lib.rs` is the thin crate root (module declarations, global statics, `run()`); `src/main.rs` just calls `lib::run()`.
 - **Frontend:** static files in `/web`, served as `frontendDist: "web"`. There is NO npm/package.json — do not run `npm install`; edit files directly.
-- **Windows:** `main` (defined in `tauri.conf.json`) plus dialog windows created on demand via the shared helper `open_dialog_window` (`src/lib.rs`): `properties`, `settings`, `connection-settings`, `add`, `delete`, `about`. Each dialog window has its own `*.html`/`*.js`/`*.css` in `/web` and is centered on the main window (both on first open and on re-open). There are NO in-page overlay dialogs in `index.html` anymore.
+- **Windows:** `main` (defined in `tauri.conf.json`) plus dialog windows created on demand via the shared helper `open_dialog_window` (`src/windows.rs`): `properties`, `settings`, `connection-settings`, `add`, `delete`, `about`. Each dialog window has its own `*.html`/`*.js`/`*.css` in `/web` and is centered on the main window (both on first open and on re-open). There are NO in-page overlay dialogs in `index.html` anymore.
 - **Config:** `tauri.conf.json`, `capabilities/default.json`, `Cargo.toml`.
 - **Plugins:** opener, dialog, fs, window-state, single-instance, deep-link (magnet scheme), log.
 - **Platform:** Windows, Linux, macOS. Feature differences handled with `#[cfg(...)]` in Rust.
@@ -22,6 +22,20 @@
 - **Tauri commands (in `generate_handler`):** `rpc_*` passthrough commands call the Transmission daemon; `get_settings`/`set_settings` manage config; `rpc_get_session_settings`/`rpc_set_session_settings` for remote daemon settings; `get_cli_file`, `validate_torrent_input`, `update_menu_markers`; window commands: `open_properties_window`, `get_properties_torrent_id`, `open_settings_window`, `open_connection_settings_window`, `open_about_window`, `open_add_window` (payload: mode/prefill/dirs/connected), `get_add_payload`, `open_delete_window` (payload: ids), `get_delete_ids`, `close_dialog_window` (refuses to close `main`), `is_connected`.
 - **Invoke arg naming:** JS passes camelCase keys (e.g. `newSettings`), Rust receives snake_case (`new_settings`) — Tauri maps automatically.
 - **Inputs handled:** HTTP/HTTPS torrent URLs, `magnet:` links, `.torrent`/`.magnet` files (file associations + CLI arg + single-instance re-open + deep-link). All flows go through `open_add_window` (main.js `handleIncomingTorrent` classifies the input and picks the mode).
+
+### 3.1 Rust module map (`/src`)
+- `lib.rs` — crate root: `mod` declarations, `run()` (builder, plugins, `on_window_event`, `generate_handler!`, `.setup()`, `app.run`), `find_file_in_args`, `is_torrent_input`, commands `get_cli_file` / `validate_torrent_input` / `get_about_info`. Commands are registered by path (e.g. `rpc::rpc_add_torrent`).
+- `state.rs` — `AppState` + static globals `CLI_FILE`, `PROPERTIES_ID`, `ADD_PAYLOAD`, `DELETE_IDS` (all `pub(crate)`).
+- `settings.rs` — `Theme`, `Settings`, base64 encode/decode, `load_settings`/`save_settings`, commands `get_settings`/`set_settings`.
+- `models.rs` — all serde DTOs (`TorrentInfo`, `TorrentFile`, `TorrentDetails`, `SessionStatsInfo`, `AltSpeedInfo`, `SessionSettings`, `ConnectRequest`).
+- `raw_rpc.rs` — `RawRpc` (raw HTTP RPC with session-id retry): `call`, `alt_speed`, `get/set_session_settings`.
+- `rpc.rs` — all `rpc_*` commands + `is_connected`, torrent field lists, `map_torrents`, `fetch_torrent_details`, `pause_after_metadata_poll`.
+- `windows.rs` — `show_main_window`, `ensure_main_visible`, `center_on_main`, `open_dialog_window`/`DialogWindowSpec`, all `open_*_window` + payload getter commands, `close_dialog_window`.
+- `menu.rs` — `mark_active`, command `update_menu_markers`, `setup_app_menu` (menu bar + `on_menu_event` → `menu-*` emits), `setup_tray`.
+- `poll.rs` — `spawn_poll_loop` (1s loop: `torrents-update`, `session-stats-update`, `alt-speed-update`, pause-after-metadata).
+- `fs_ops.rs` — commands `file_rename`/`file_delete`/`file_move` with `run_fs_with_timeout`.
+- `notifications.rs` — command `send_notification` (per-platform: osascript / notify-rust / PowerShell toast).
+- **Visibility rule:** items shared across modules are `pub(crate)`; root-level `#[tauri::command]` fns in `lib.rs` must stay private (a `pub(crate)` one triggers E0255 — its `#[macro_export]` wrapper macro would collide at crate root), while commands in submodules must be `pub(crate)` so `generate_handler![module::cmd]` can reach them.
 
 ## 4. Transmission RPC (important)
 - **Typed API limitation:** The `transmission-rpc` crate's `SessionGet` struct only has 7 basic fields — it does NOT include speed limits, queue settings, seed ratio, or idle limits.
