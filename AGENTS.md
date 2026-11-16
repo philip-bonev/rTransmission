@@ -45,6 +45,7 @@
 
 ## 5. Project Commands
 - **Run Dev Mode:** `cargo tauri dev`
+- **tauri-cli dev-server MIME patch:** The builtin dev server (tauri-cli ≥ 2.12) serves `/` as `application/octet-stream`, so WKWebView shows a blank window in dev. Patch the registry source: in `~/.cargo/registry/src/*/tauri-cli-*/src/dev/builtin_dev_server.rs` change `MimeType::OctetStream` to `MimeType::Html` in the `parse_with_fallback` call, then re-install with `cargo install --path <that tauri-cli dir> --locked --force`. Re-apply after every `tauri-cli` upgrade until fixed upstream (bug still on the tauri `dev` branch as of 2026-11-16).
 - **Build Production:** `cargo tauri build` (bundle appears under `target/release/bundle/`).
 - **macOS PATH:** The opencode shell session may lack `/usr/bin` in `$PATH`. If a system tool (like `cc`, `ditto`, `rm`, etc.) is not found, ask the user to run the command in their terminal or prefix it with `PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/Users/fi4o/.cargo/bin:/usr/bin:/usr/sbin:/bin:/sbin:$PATH"`.
 - **macOS install after build:** `ditto "target/release/bundle/macos/rTransmission Client.app" "/Applications/rTransmission Client.app"`
