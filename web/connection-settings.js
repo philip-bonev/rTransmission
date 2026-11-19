@@ -77,17 +77,17 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('connection-settings-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const settings = {
-      rpc_host: document.getElementById('rpc-host').value,
-      rpc_port: parseInt(document.getElementById('rpc-port').value) || 9091,
-      rpc_auth: document.getElementById('rpc-auth').checked,
-      rpc_username: document.getElementById('rpc-username').value,
-      rpc_password: document.getElementById('rpc-password').value,
-      rpc_https: document.getElementById('rpc-https').checked,
-      rpc_insecure: document.getElementById('rpc-insecure').checked,
-      auto_connect: document.getElementById('rpc-auto-connect').checked,
-    };
+    let settings;
     try {
+      settings = await invoke('get_settings');
+      settings.rpc_host = document.getElementById('rpc-host').value.trim();
+      settings.rpc_port = parseInt(document.getElementById('rpc-port').value) || 9091;
+      settings.rpc_auth = document.getElementById('rpc-auth').checked;
+      settings.rpc_username = document.getElementById('rpc-username').value;
+      settings.rpc_password = document.getElementById('rpc-password').value;
+      settings.rpc_https = document.getElementById('rpc-https').checked;
+      settings.rpc_insecure = document.getElementById('rpc-insecure').checked;
+      settings.auto_connect = document.getElementById('rpc-auto-connect').checked;
       await invoke('set_settings', { newSettings: settings });
     } catch (error) {
       console.error('Failed to save settings:', error);

@@ -188,12 +188,13 @@ pub(crate) fn set_settings(
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut state = state.lock().unwrap();
-    state.settings = new_settings.clone();
     save_settings(&state.settings_path, &new_settings)?;
+    state.settings = new_settings.clone();
 
-    if let Some(tray) = app.tray_by_id("main-tray") {
-        tray.set_visible(new_settings.minimize_to_tray)
-            .map_err(|e| format!("Failed to update tray icon visibility: {e}"))?;
+    if let Some(tray) = app.tray_by_id("main-tray")
+        && let Err(error) = tray.set_visible(new_settings.minimize_to_tray)
+    {
+        log::warn!("Failed to update tray icon visibility: {error}");
     }
 
     let _ = app.emit("settings-changed", ());
