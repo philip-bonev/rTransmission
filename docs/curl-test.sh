@@ -1,31 +1,23 @@
 #!/usr/bin/env bash
-URL=http://192.168.1.5:9091/transmission/rpc
-USER=fi4o
-PASS=fi4opassword
+set -euo pipefail
+
+URL="${TRANSMISSION_URL:-http://localhost:9091/transmission/rpc}"
+USER="${TRANSMISSION_USER:?Set TRANSMISSION_USER}"
+PASS="${TRANSMISSION_PASSWORD:?Set TRANSMISSION_PASSWORD}"
 ID=$RANDOM
-VERSION=$(cat <<EOF
-    {
-        "method": "session_get", 
-        "params": {
-            "fields": ["version"]}, 
-        "id": ${ID}
-    }
-EOF
-)
 
-echo $VERSION | jq
-SESSION_ID=$(curl -u "$USER:$PASS" -H "Accept: application/json" -si "$URL" | grep -E '^X-Transmission-Session-Id.*' | tr -d '\r')
-curl -u "$USER:$PASS" -H "$SESSION_ID" -d "$VERSION" -s "$URL" | jq
+SESSION_ID=$(curl -u "$USER:$PASS" -H "Accept: application/json" -si "$URL" | grep -E '^X-Transmission-Session-Id:' | tr -d '\r')
 
-DATA=$(cat <<EOF
-    {
-        "method": "torrent-get",
-        "arguments": {
-            "fields": ["id", "queue_position", "acitivity_date", "added_date", "done_date", "name", "percentDone"]
-        }
-    }
-EOF
-)
+VERSION=$(jq -n --argjson tag "$ID" '{method: "session-get", arguments: {}, tag: $tag}')
+echo "$VERSION" | jq
+curl -u "$USER:$PASS" -H "$SESSION_ID" -H "Accept: application/json" -d "$VERSION" -s "$URL" | jq
 
-echo $DATA | jq
+DATA=$(jq -n --argjson tag "$ID" '{
+  method: "torrent-get",
+  arguments: {
+    fields: ["id", "queue-position", "activity-date", "added-date", "done-date", "name", "percentDone"]
+  },
+  tag: $tag
+}')
+echo "$DATA" | jq
 curl -u "$USER:$PASS" -H "$SESSION_ID" -H "Accept: application/json" -d "$DATA" -s "$URL" | jq
