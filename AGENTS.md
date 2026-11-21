@@ -40,7 +40,8 @@
 - **Typed API limitation:** The `transmission-rpc` crate's `SessionGet` struct only has 7 basic fields — it does NOT include speed limits, queue settings, seed ratio, or idle limits.
 - **RawRpc:** Used for `session-get` (reading all session settings) and `session-set` (writing all session settings). Already implemented as `RawRpc::get_session_settings()` / `set_session_settings()` using `serde_json::json!`.
 - **Session settings fields:** `download-queue-size`, `download-queue-enabled`, `seed-ratio-limit`, `seed-ratio-limited`, `idle-seeding-limit`, `idle-seeding-limit-enabled`, `speed-limit-down`, `speed-limit-down-enabled`, `speed-limit-up`, `speed-limit-up-enabled`, `alt-speed-down`, `alt-speed-up`.
-- **Speed limit convention:** 0 = unlimited. When sending to daemon: `speed_limit_down_enabled: speedDl > 0`, `speed_limit_up_enabled: speedUl > 0`. Queue/seed/idle are always sent as enabled.
+- **Speed limit convention:** 0 = unlimited. When the user changes a speed value, `*_enabled` follows `value > 0`; when the value is unchanged, the daemon's existing `*_enabled` flag is preserved. Queue/seed/idle `*_enabled` flags are always preserved from the loaded session settings — never forced to `true`.
+- **Strict responses:** `RawRpc::call` rejects non-2xx HTTP, non-`"success"` `result`, and malformed responses centrally. Session getters require every field and never fall back to defaults, so a partial response fails instead of silently writing defaults back to the daemon.
 
 ## 5. Project Commands
 - **Run Dev Mode:** `cargo tauri dev`

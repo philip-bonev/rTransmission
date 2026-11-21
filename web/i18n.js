@@ -136,6 +136,9 @@ const en = {
   'settings.alt_speeds': 'Alternate Speed Limits',
   'settings.alt_dl': 'Download (KB/s)',
   'settings.alt_ul': 'Upload (KB/s)',
+  'settings.remote_load_failed': 'Could not load the daemon settings. Remote settings cannot be changed until they load successfully.',
+  'settings.remote_not_saved': 'Remote settings were not changed because they could not be loaded.',
+  'settings.invalid_value': 'Enter a valid number for all settings.',
 
   // Context menu
   'ctx.play': 'Play',
@@ -381,6 +384,9 @@ const bg = {
   'settings.alt_speeds': 'Алтернативни лимити',
   'settings.alt_dl': 'Сваляне (KB/s)',
   'settings.alt_ul': 'Качване (KB/s)',
+  'settings.remote_load_failed': 'Настройките на сървъра не можаха да се заредят. Промяна на отдалечените настройки е невъзможна, докато не се заредят успешно.',
+  'settings.remote_not_saved': 'Отдалечените настройки не бяха променени, защото не можаха да се заредят.',
+  'settings.invalid_value': 'Въведете валидно число за всички настройки.',
 
   'ctx.play': 'Старт',
   'ctx.pause': 'Пауза',

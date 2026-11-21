@@ -12,9 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use serde_json::Value;
 use transmission_rpc::types::BasicAuth;
 
 use crate::models::{AltSpeedInfo, SessionSettings};
+
+fn field<'a>(args: &'a Value, key: &str) -> Result<&'a Value, String> {
+    args.get(key)
+        .ok_or_else(|| format!("Transmission response is missing '{key}'"))
+}
+
+fn req_i64(args: &Value, key: &str) -> Result<i64, String> {
+    field(args, key)?
+        .as_i64()
+        .ok_or_else(|| format!("'{key}' is not an integer"))
+}
+
+fn req_i32(args: &Value, key: &str) -> Result<i32, String> {
+    i32::try_from(req_i64(args, key)?).map_err(|_| format!("'{key}' is out of range"))
+}
+
+fn req_f64(args: &Value, key: &str) -> Result<f64, String> {
+    field(args, key)?
+        .as_f64()
+        .ok_or_else(|| format!("'{key}' is not a number"))
+}
+
+fn req_bool(args: &Value, key: &str) -> Result<bool, String> {
+    field(args, key)?
+        .as_bool()
+        .ok_or_else(|| format!("'{key}' is not a boolean"))
+}
 
 pub(crate) struct RawRpc {
     pub url: url::Url,
@@ -43,7 +71,8 @@ impl RawRpc {
                 .send()
                 .await
                 .map_err(|e| format!("HTTP error: {}", e))?;
-            if rsp.status() == reqwest::StatusCode::CONFLICT {
+            let status = rsp.status();
+            if status == reqwest::StatusCode::CONFLICT {
                 let id = rsp
                     .headers()
                     .get("X-Transmission-Session-Id")
@@ -54,24 +83,28 @@ impl RawRpc {
                 *self.session_id.write().unwrap() = Some(id);
                 continue;
             }
+            if !status.is_success() {
+                return Err(format!("Transmission returned HTTP {}", status.as_u16()));
+            }
             let json: serde_json::Value = rsp
                 .json()
                 .await
                 .map_err(|e| format!("Decode error: {}", e))?;
-            return Ok(json);
+            return match json.get("result").and_then(Value::as_str) {
+                Some("success") => Ok(json),
+                Some(other) => Err(format!("Transmission error: {other}")),
+                None => Err("Transmission returned a malformed response".to_string()),
+            };
         }
         Err("Max retries reached".to_string())
     }
 
     pub(crate) async fn alt_speed(&self) -> Result<AltSpeedInfo, String> {
         let json = self.call("session-get", None).await?;
-        let enabled = json["arguments"]["alt-speed-enabled"]
-            .as_bool()
-            .ok_or_else(|| "alt-speed-enabled missing in response".to_string())?;
-        let download_limit =
-            (json["arguments"]["alt-speed-down"].as_f64().unwrap_or(0.0) * 1024.0) as i64;
-        let upload_limit =
-            (json["arguments"]["alt-speed-up"].as_f64().unwrap_or(0.0) * 1024.0) as i64;
+        let args = field(&json, "arguments")?;
+        let enabled = req_bool(args, "alt-speed-enabled")?;
+        let download_limit = (req_f64(args, "alt-speed-down")? * 1024.0).round() as i64;
+        let upload_limit = (req_f64(args, "alt-speed-up")? * 1024.0).round() as i64;
         Ok(AltSpeedInfo {
             enabled,
             download_limit,
@@ -90,22 +123,20 @@ impl RawRpc {
 
     pub(crate) async fn get_session_settings(&self) -> Result<SessionSettings, String> {
         let json = self.call("session-get", None).await?;
-        let args = &json["arguments"];
+        let args = field(&json, "arguments")?;
         Ok(SessionSettings {
-            download_queue_size: args["download-queue-size"].as_i64().unwrap_or(5) as i32,
-            download_queue_enabled: args["download-queue-enabled"].as_bool().unwrap_or(true),
-            seed_ratio_limit: args["seed-ratio-limit"].as_f64().unwrap_or(2.0),
-            seed_ratio_limited: args["seed-ratio-limited"].as_bool().unwrap_or(false),
-            idle_seeding_limit: args["idle-seeding-limit"].as_i64().unwrap_or(30) as i32,
-            idle_seeding_limit_enabled: args["idle-seeding-limit-enabled"]
-                .as_bool()
-                .unwrap_or(false),
-            speed_limit_down: args["speed-limit-down"].as_i64().unwrap_or(100) as i32,
-            speed_limit_down_enabled: args["speed-limit-down-enabled"].as_bool().unwrap_or(false),
-            speed_limit_up: args["speed-limit-up"].as_i64().unwrap_or(100) as i32,
-            speed_limit_up_enabled: args["speed-limit-up-enabled"].as_bool().unwrap_or(false),
-            alt_speed_down: args["alt-speed-down"].as_i64().unwrap_or(50) as i32,
-            alt_speed_up: args["alt-speed-up"].as_i64().unwrap_or(50) as i32,
+            download_queue_size: req_i32(args, "download-queue-size")?,
+            download_queue_enabled: req_bool(args, "download-queue-enabled")?,
+            seed_ratio_limit: req_f64(args, "seed-ratio-limit")?,
+            seed_ratio_limited: req_bool(args, "seed-ratio-limited")?,
+            idle_seeding_limit: req_i32(args, "idle-seeding-limit")?,
+            idle_seeding_limit_enabled: req_bool(args, "idle-seeding-limit-enabled")?,
+            speed_limit_down: req_i32(args, "speed-limit-down")?,
+            speed_limit_down_enabled: req_bool(args, "speed-limit-down-enabled")?,
+            speed_limit_up: req_i32(args, "speed-limit-up")?,
+            speed_limit_up_enabled: req_bool(args, "speed-limit-up-enabled")?,
+            alt_speed_down: req_i32(args, "alt-speed-down")?,
+            alt_speed_up: req_i32(args, "alt-speed-up")?,
         })
     }
 
@@ -113,6 +144,25 @@ impl RawRpc {
         &self,
         settings: &SessionSettings,
     ) -> Result<(), String> {
+        for (key, value) in [
+            (
+                "download-queue-size",
+                i64::from(settings.download_queue_size),
+            ),
+            ("idle-seeding-limit", i64::from(settings.idle_seeding_limit)),
+            ("speed-limit-down", i64::from(settings.speed_limit_down)),
+            ("speed-limit-up", i64::from(settings.speed_limit_up)),
+            ("alt-speed-down", i64::from(settings.alt_speed_down)),
+            ("alt-speed-up", i64::from(settings.alt_speed_up)),
+        ] {
+            if value < 0 {
+                return Err(format!("'{key}' must not be negative"));
+            }
+        }
+        if !settings.seed_ratio_limit.is_finite() || settings.seed_ratio_limit < 0.0 {
+            return Err("'seed-ratio-limit' must be a non-negative number".to_string());
+        }
+
         self.call(
             "session-set",
             Some(serde_json::json!({

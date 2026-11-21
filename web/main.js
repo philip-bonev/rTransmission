@@ -439,7 +439,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const settings = await getSettings();
   currentTheme = settings.theme || 'auto';
   notificationsEnabled = settings.notifications_enabled !== false;
-  notificationDuration = settings.notification_duration || 5;
+  notificationDuration = settings.notification_duration ?? 5;
   applyTheme(currentTheme);
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     applyTheme(currentTheme);
@@ -449,7 +449,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const s = await getSettings();
     currentTheme = s.theme || 'auto';
     notificationsEnabled = s.notifications_enabled !== false;
-    notificationDuration = s.notification_duration || 5;
+    notificationDuration = s.notification_duration ?? 5;
     applyTheme(currentTheme);
   });
 

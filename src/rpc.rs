@@ -379,12 +379,6 @@ pub(crate) async fn rpc_get_free_space(
     let json = raw
         .call("free-space", Some(serde_json::json!({ "path": path })))
         .await?;
-    if json["result"].as_str() != Some("success") {
-        return Err(format!(
-            "Transmission rejected the request: {}",
-            json["result"].as_str().unwrap_or("unknown")
-        ));
-    }
     json["arguments"]["size-bytes"]
         .as_i64()
         .ok_or_else(|| "size-bytes missing in response".to_string())
@@ -413,18 +407,11 @@ pub(crate) async fn rpc_torrent_rename_path(
 
     let guard = raw_state.lock().await;
     let raw = guard.as_ref().ok_or("Not connected")?;
-    let json = raw
-        .call(
-            "torrent-rename-path",
-            Some(serde_json::json!({ "ids": [id], "path": path, "name": name })),
-        )
-        .await?;
-    if json["result"].as_str() != Some("success") {
-        return Err(format!(
-            "Transmission rejected the request: {}",
-            json["result"].as_str().unwrap_or("unknown")
-        ));
-    }
+    raw.call(
+        "torrent-rename-path",
+        Some(serde_json::json!({ "ids": [id], "path": path, "name": name })),
+    )
+    .await?;
     Ok(())
 }
 

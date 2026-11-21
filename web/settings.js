@@ -21,6 +21,29 @@ const remoteInputIds = [
 ];
 
 let connected = false;
+let remoteSettings = null;
+
+function setRemoteError(message) {
+  const el = document.getElementById('session-error');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle('hidden', !message);
+}
+
+function setRemoteDisabled(disabled) {
+  remoteInputIds.forEach(id => {
+    document.getElementById(id).disabled = disabled;
+  });
+}
+
+function readNumber(id, { integer = false, min = 0, max = Number.MAX_SAFE_INTEGER, fallback = null } = {}) {
+  const raw = document.getElementById(id).value.trim();
+  if (raw === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < min || value > max) return null;
+  if (integer && !Number.isInteger(value)) return null;
+  return value;
+}
 
 async function applyTheme(theme) {
   let dark;
@@ -58,7 +81,8 @@ async function load() {
     document.getElementById('default-download-dir').value = settings.default_download_dir || '';
     document.getElementById('theme-select').value = settings.theme || 'auto';
     document.getElementById('notifications-enabled').checked = settings.notifications_enabled !== false;
-    document.getElementById('notification-duration').value = settings.notification_duration || 5;
+    document.getElementById('notification-duration').value =
+      settings.notification_duration ?? 5;
     document.getElementById('minimize-to-tray').checked = settings.minimize_to_tray !== false;
   } catch (error) {
     console.error('Failed to load settings:', error);
@@ -68,26 +92,34 @@ async function load() {
   } catch {
     connected = false;
   }
-  remoteInputIds.forEach(id => {
-    document.getElementById(id).disabled = !connected;
-  });
   if (connected) {
     try {
-      const ss = await invoke('rpc_get_session_settings');
-      document.getElementById('session-dl-queue-size').value = ss.download_queue_size;
-      document.getElementById('session-seed-ratio-limit').value = ss.seed_ratio_limit;
-      document.getElementById('session-idle-seeding-limit').value = ss.idle_seeding_limit;
-      document.getElementById('session-speed-dl').value = ss.speed_limit_down;
-      document.getElementById('session-speed-ul').value = ss.speed_limit_up;
-      document.getElementById('session-alt-dl').value = ss.alt_speed_down;
-      document.getElementById('session-alt-ul').value = ss.alt_speed_up;
+      remoteSettings = await invoke('rpc_get_session_settings');
+      document.getElementById('session-dl-queue-size').value = remoteSettings.download_queue_size;
+      document.getElementById('session-seed-ratio-limit').value = remoteSettings.seed_ratio_limit;
+      document.getElementById('session-idle-seeding-limit').value = remoteSettings.idle_seeding_limit;
+      document.getElementById('session-speed-dl').value = remoteSettings.speed_limit_down;
+      document.getElementById('session-speed-ul').value = remoteSettings.speed_limit_up;
+      document.getElementById('session-alt-dl').value = remoteSettings.alt_speed_down;
+      document.getElementById('session-alt-ul').value = remoteSettings.alt_speed_up;
+      setRemoteDisabled(false);
+      setRemoteError('');
     } catch (e) {
       console.error('Failed to load session settings:', e);
+      remoteSettings = null;
+      remoteInputIds.forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      setRemoteDisabled(true);
+      setRemoteError(t('settings.remote_load_failed'));
     }
   } else {
+    remoteSettings = null;
     remoteInputIds.forEach(id => {
       document.getElementById(id).value = '';
     });
+    setRemoteDisabled(true);
+    setRemoteError('');
   }
   applyTranslations();
 }
@@ -103,7 +135,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     let duration = 5;
     try {
       const settings = await invoke('get_settings');
-      duration = settings.notification_duration || 5;
+      duration = settings.notification_duration ?? 5;
     } catch {}
     invoke('send_notification', { title: 'rTransmission', body: t('notify.test'), duration });
   });
@@ -129,8 +161,32 @@ window.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('default-download-dir').value.trim() || null;
     current.theme = document.getElementById('theme-select').value;
     current.notifications_enabled = document.getElementById('notifications-enabled').checked;
-    current.notification_duration = parseInt(document.getElementById('notification-duration').value) || 5;
+    const duration = readNumber('notification-duration', { integer: true, min: 0, max: 60, fallback: 5 });
+    if (duration === null) {
+      alert(t('settings.invalid_value'));
+      return;
+    }
+    current.notification_duration = duration;
     current.minimize_to_tray = document.getElementById('minimize-to-tray').checked;
+
+    const queueSize = connected
+      ? readNumber('session-dl-queue-size', { integer: true, min: 1, max: 100 })
+      : 0;
+    const seedRatio = connected
+      ? readNumber('session-seed-ratio-limit', { min: 0, max: 10000 })
+      : 0;
+    const idleLimit = connected
+      ? readNumber('session-idle-seeding-limit', { integer: true, min: 1, max: 40320 })
+      : 0;
+    const speedDl = connected ? readNumber('session-speed-dl', { integer: true }) : 0;
+    const speedUl = connected ? readNumber('session-speed-ul', { integer: true }) : 0;
+    const altDl = connected ? readNumber('session-alt-dl', { integer: true }) : 0;
+    const altUl = connected ? readNumber('session-alt-ul', { integer: true }) : 0;
+    if (connected && [queueSize, seedRatio, idleLimit, speedDl, speedUl, altDl, altUl].includes(null)) {
+      alert(t('settings.invalid_value'));
+      return;
+    }
+
     try {
       await invoke('set_settings', { newSettings: current });
     } catch (error) {
@@ -139,28 +195,36 @@ window.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     if (connected) {
+      if (!remoteSettings) {
+        alert(t('settings.remote_not_saved'));
+        return;
+      }
+      const next = {
+        download_queue_size: queueSize,
+        download_queue_enabled: remoteSettings.download_queue_enabled,
+        seed_ratio_limit: seedRatio,
+        seed_ratio_limited: remoteSettings.seed_ratio_limited,
+        idle_seeding_limit: idleLimit,
+        idle_seeding_limit_enabled: remoteSettings.idle_seeding_limit_enabled,
+        speed_limit_down: speedDl,
+        speed_limit_down_enabled: speedDl === remoteSettings.speed_limit_down
+          ? remoteSettings.speed_limit_down_enabled
+          : speedDl > 0,
+        speed_limit_up: speedUl,
+        speed_limit_up_enabled: speedUl === remoteSettings.speed_limit_up
+          ? remoteSettings.speed_limit_up_enabled
+          : speedUl > 0,
+        alt_speed_down: altDl,
+        alt_speed_up: altUl,
+      };
       try {
-        const speedDl = parseInt(document.getElementById('session-speed-dl').value) || 0;
-        const speedUl = parseInt(document.getElementById('session-speed-ul').value) || 0;
-        await invoke('rpc_set_session_settings', {
-          settings: {
-            download_queue_size: parseInt(document.getElementById('session-dl-queue-size').value) || 5,
-            download_queue_enabled: true,
-            seed_ratio_limit: parseFloat(document.getElementById('session-seed-ratio-limit').value) || 2.0,
-            seed_ratio_limited: true,
-            idle_seeding_limit: parseInt(document.getElementById('session-idle-seeding-limit').value) || 30,
-            idle_seeding_limit_enabled: true,
-            speed_limit_down: speedDl,
-            speed_limit_down_enabled: speedDl > 0,
-            speed_limit_up: speedUl,
-            speed_limit_up_enabled: speedUl > 0,
-            alt_speed_down: parseInt(document.getElementById('session-alt-dl').value) || 50,
-            alt_speed_up: parseInt(document.getElementById('session-alt-ul').value) || 50,
-          },
-        });
+        await invoke('rpc_set_session_settings', { settings: next });
+        remoteSettings = next;
       } catch (e) {
         console.error('Failed to save session settings:', e);
+        setRemoteError(String(e));
         alert(`${t('error.save_settings')}: ` + e);
+        return;
       }
     }
     closeDialog();
