@@ -15,6 +15,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use crate::settings::Settings;
 
@@ -30,3 +31,24 @@ pub(crate) static CLI_FILE: Mutex<Option<String>> = Mutex::new(None);
 pub(crate) static PROPERTIES_ID: Mutex<Option<i64>> = Mutex::new(None);
 pub(crate) static ADD_PAYLOAD: Mutex<Option<serde_json::Value>> = Mutex::new(None);
 pub(crate) static DELETE_IDS: Mutex<Option<Vec<i64>>> = Mutex::new(None);
+
+static CONNECTION_EPOCH: AtomicU64 = AtomicU64::new(0);
+static CONNECTION_ALIVE: AtomicBool = AtomicBool::new(false);
+
+pub(crate) static CONNECT_GUARD: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+pub(crate) fn connection_epoch() -> u64 {
+    CONNECTION_EPOCH.load(Ordering::SeqCst)
+}
+
+pub(crate) fn bump_connection_epoch() -> u64 {
+    CONNECTION_EPOCH.fetch_add(1, Ordering::SeqCst) + 1
+}
+
+pub(crate) fn connection_alive() -> bool {
+    CONNECTION_ALIVE.load(Ordering::SeqCst)
+}
+
+pub(crate) fn set_connection_alive(alive: bool) {
+    CONNECTION_ALIVE.store(alive, Ordering::SeqCst);
+}

@@ -25,11 +25,12 @@ use transmission_rpc::types::{
 };
 
 use crate::models::{
-    AltSpeedInfo, ConnectRequest, SessionSettings, TorrentDetails, TorrentFile, TorrentInfo,
+    AltSpeedInfo, ConnectRequest, ConnectionState, SessionSettings, TorrentDetails, TorrentFile,
+    TorrentInfo,
 };
 use crate::raw_rpc::RawRpc;
 use crate::settings::base64_encode;
-use crate::state::PROPERTIES_ID;
+use crate::state::{self, PROPERTIES_ID};
 
 fn status_to_string(status: &TorrentStatus) -> String {
     match status {
@@ -419,8 +420,14 @@ pub(crate) async fn rpc_torrent_rename_path(
 pub(crate) async fn rpc_torrent_remove(
     ids: Vec<i64>,
     delete_data: bool,
+    epoch: Option<u64>,
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
 ) -> Result<(), String> {
+    if let Some(expected) = epoch
+        && state::connection_epoch() != expected
+    {
+        return Err("The connection changed, so the torrents were not removed".to_string());
+    }
     let mut guard = client_state.lock().await;
     let client = guard.as_mut().ok_or("Not connected")?;
     let ids: Vec<Id> = ids.into_iter().map(Id::Id).collect();
@@ -439,6 +446,7 @@ pub(crate) async fn rpc_torrent_remove(
 
 #[tauri::command]
 pub(crate) async fn rpc_connect(
+    app: tauri::AppHandle,
     args: ConnectRequest,
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
     raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
@@ -448,7 +456,9 @@ pub(crate) async fn rpc_connect(
     let url_str = format!("{}://{}:{}/transmission/rpc", scheme, args.host, args.port);
     let url = url::Url::parse(&url_str).map_err(|e| format!("Invalid URL: {}", e))?;
 
-    let mut builder = reqwest::Client::builder();
+    let mut builder = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(30));
     if args.insecure {
         builder = builder.danger_accept_invalid_certs(true);
     }
@@ -463,6 +473,8 @@ pub(crate) async fn rpc_connect(
             password: args.password.clone(),
         });
     }
+
+    let generation = state::connection_epoch();
     client
         .session_get()
         .await
@@ -481,9 +493,26 @@ pub(crate) async fn rpc_connect(
         session_id: std::sync::RwLock::new(None),
         client: http_client,
     };
+    let _guard = state::CONNECT_GUARD.lock().await;
+    if state::connection_epoch() != generation {
+        return Err("Connection attempt was cancelled".to_string());
+    }
     pause_set_state.lock().await.clear();
-    *client_state.lock().await = Some(client);
-    *raw_state.lock().await = Some(raw);
+    {
+        let mut client_guard = client_state.lock().await;
+        let mut raw_guard = raw_state.lock().await;
+        *client_guard = Some(client);
+        *raw_guard = Some(raw);
+    }
+    let epoch = state::bump_connection_epoch();
+    state::set_connection_alive(true);
+    let _ = app.emit(
+        "connection-changed",
+        ConnectionState {
+            connected: true,
+            epoch,
+        },
+    );
     Ok(())
 }
 
@@ -523,13 +552,24 @@ pub(crate) async fn rpc_set_session_settings(
 
 #[tauri::command]
 pub(crate) async fn rpc_disconnect(
+    app: tauri::AppHandle,
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
     raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
     pause_set_state: State<'_, tokio::sync::Mutex<HashSet<i64>>>,
 ) -> Result<(), String> {
+    let _guard = state::CONNECT_GUARD.lock().await;
+    let epoch = state::bump_connection_epoch();
+    state::set_connection_alive(false);
     *client_state.lock().await = None;
     *raw_state.lock().await = None;
     pause_set_state.lock().await.clear();
+    let _ = app.emit(
+        "connection-changed",
+        ConnectionState {
+            connected: false,
+            epoch,
+        },
+    );
     Ok(())
 }
 
@@ -620,5 +660,17 @@ pub(crate) async fn rpc_set_files_priority(
 pub(crate) async fn is_connected(
     client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
 ) -> Result<bool, String> {
-    Ok(client_state.lock().await.is_some())
+    let has_client = client_state.lock().await.is_some();
+    Ok(has_client && state::connection_alive())
+}
+
+#[tauri::command]
+pub(crate) async fn get_connection_state(
+    client_state: State<'_, tokio::sync::Mutex<Option<TransClient>>>,
+) -> Result<ConnectionState, String> {
+    let has_client = client_state.lock().await.is_some();
+    Ok(ConnectionState {
+        connected: has_client && state::connection_alive(),
+        epoch: state::connection_epoch(),
+    })
 }

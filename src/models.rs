@@ -81,6 +81,12 @@ pub(crate) struct AltSpeedInfo {
     pub upload_limit: i64,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub(crate) struct ConnectionState {
+    pub connected: bool,
+    pub epoch: u64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct SessionSettings {
     pub download_queue_size: i32,

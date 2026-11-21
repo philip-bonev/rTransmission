@@ -17,6 +17,7 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 let connected = false;
+let connecting = false;
 const selectedIds = new Set();
 let filterState = 'all';
 let torrentsCache = [];
@@ -321,8 +322,10 @@ function applyTheme(theme) {
 }
 
 async function connect(silent = false) {
-  const settings = await getSettings();
+  if (connecting) return;
+  connecting = true;
   try {
+    const settings = await getSettings();
     await invoke('rpc_connect', {
       args: {
         host: settings.rpc_host,
@@ -340,6 +343,8 @@ async function connect(silent = false) {
     if (!silent) {
       alert(`${t('error.connection_failed')}: ` + error);
     }
+  } finally {
+    connecting = false;
   }
 }
 
@@ -734,6 +739,17 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   await listen('alt-speed-update', (event) => {
     updateAltSpeedState(event.payload);
+  });
+
+  await listen('connection-changed', (event) => {
+    const next = event.payload || {};
+    if (next.connected) {
+      if (!connected) updateConnectionState(true);
+      return;
+    }
+    updateConnectionState(false);
+    prevTorrentStates.clear();
+    renderTorrents([]);
   });
 
   const cliFile = await invoke('get_cli_file');

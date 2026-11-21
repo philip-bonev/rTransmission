@@ -102,6 +102,7 @@ function renderDetails(torrent) {
 
 let currentId = null;
 let loadRevision = 0;
+let connectionEpoch = null;
 let selectedTreeRow = null;
 
 function selectTreeRow(row) {
@@ -742,4 +743,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 listen('properties-data', load).catch(() => {});
+
+(async () => {
+  try {
+    const state = await invoke('get_connection_state');
+    connectionEpoch = state.epoch;
+  } catch {}
+  listen('connection-changed', (event) => {
+    const next = event.payload || {};
+    if (!next.connected || (connectionEpoch !== null && next.epoch !== connectionEpoch)) {
+      invoke('close_dialog_window').catch(() => {});
+    }
+  }).catch(() => {});
+})();
+
 load();

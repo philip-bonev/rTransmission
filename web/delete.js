@@ -17,6 +17,7 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 let deleteIds = [];
+let deleteEpoch = null;
 
 async function applyTheme() {
   let theme = 'auto';
@@ -73,7 +74,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     try {
-      await invoke('rpc_torrent_remove', { ids, deleteData });
+      await invoke('rpc_torrent_remove', { ids, deleteData, epoch: deleteEpoch });
     } catch (error) {
       console.error('Action failed:', error);
       alert(`${t('error.action_failed')}: ` + error);
@@ -89,11 +90,25 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   try {
+    const state = await invoke('get_connection_state');
+    deleteEpoch = state.epoch;
+  } catch (error) {
+    console.error('Failed to read connection state:', error);
+  }
+
+  try {
     const ids = await invoke('get_delete_ids');
     applyIds(ids);
   } catch (error) {
     console.error('Failed to load delete ids:', error);
   }
+
+  listen('connection-changed', (event) => {
+    const next = event.payload || {};
+    if (!next.connected || (deleteEpoch !== null && next.epoch !== deleteEpoch)) {
+      closeDialog();
+    }
+  }).catch(() => {});
 
   listen('delete-data', (event) => {
     applyIds(event.payload);

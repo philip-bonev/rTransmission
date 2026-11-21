@@ -177,6 +177,7 @@ pub fn run() {
             windows::get_delete_ids,
             windows::close_dialog_window,
             rpc::is_connected,
+            rpc::get_connection_state,
             rpc::rpc_get_torrent_details,
             rpc::rpc_set_files_wanted,
             rpc::rpc_set_files_priority,
