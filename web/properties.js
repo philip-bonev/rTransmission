@@ -293,6 +293,7 @@ function renderNode(parentUl, node, depth, path) {
   toggle.className = 'tree-toggle';
   toggle.textContent = node.isDir ? '▶' : '';
   const nodePath = path ? path + '/' + node.name : node.name;
+  row.dataset.path = nodePath;
 
   const check = document.createElement('input');
   check.type = 'checkbox';
@@ -600,14 +601,16 @@ function showFileConfirm(title, message, defaultValue) {
 }
 
 function showFileStatus(message) {
-  const msgEl = document.getElementById('file-confirm-message');
-  msgEl.textContent = message;
+  document.getElementById('file-confirm-title').textContent = t('file_op.rename');
+  document.getElementById('file-confirm-message').textContent = message;
   document.getElementById('file-confirm-input').classList.add('hidden');
   document.getElementById('file-confirm-ok').classList.add('hidden');
   document.getElementById('file-confirm-cancel').classList.add('hidden');
+  document.getElementById('file-confirm-overlay').classList.remove('hidden');
 }
 
 function hideFileStatus() {
+  document.getElementById('file-confirm-overlay').classList.add('hidden');
   document.getElementById('file-confirm-ok').classList.remove('hidden');
   document.getElementById('file-confirm-cancel').classList.remove('hidden');
 }
@@ -617,6 +620,7 @@ async function runFileOp(fn) {
     await fn();
     return true;
   } catch (error) {
+    hideFileStatus();
     await showFileConfirm(t('file_op.error'), String(error));
     return false;
   }
@@ -626,38 +630,26 @@ function getDownloadDir() {
   return torrentDownloadDir || '';
 }
 
-async function fileOpRename(fullPath, oldName) {
+function getFullPath(relativePath) {
+  const dir = getDownloadDir();
+  if (!dir) return relativePath;
+  const separator = dir.includes('\\') ? '\\' : '/';
+  const base = dir.endsWith('/') || dir.endsWith('\\') ? dir : dir + separator;
+  return base + relativePath.split('/').join(separator);
+}
+
+async function fileOpRename(relativePath, oldName) {
   const res = await showFileConfirm(t('file_op.rename'), t('file_op.rename_msg'), oldName);
   if (!res.ok) return;
   const newName = res.value;
   if (!newName || newName === oldName) return;
 
-  const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-  const newPath = parentDir + '/' + newName;
   showFileStatus(t('file_op.renaming'));
-  await runFileOp(() => invoke('file_rename', { oldPath: fullPath, newPath }));
+  const renamed = await runFileOp(() =>
+    invoke('rpc_torrent_rename_path', { id: currentId, path: relativePath, name: newName })
+  );
   hideFileStatus();
-  await load();
-}
-
-async function fileOpDelete(fullPath, name) {
-  const res = await showFileConfirm(t('file_op.delete'), t('file_op.delete_msg', { name }));
-  if (!res.ok) return;
-  showFileStatus(t('file_op.deleting'));
-  await runFileOp(() => invoke('file_delete', { path: fullPath }));
-  hideFileStatus();
-  await load();
-}
-
-async function fileOpMove(fullPath) {
-  const res = await showFileConfirm(t('file_op.move'), t('file_op.move_msg'), fullPath);
-  if (!res.ok) return;
-  const dest = res.value;
-  if (!dest || dest === fullPath) return;
-  showFileStatus(t('file_op.moving'));
-  await runFileOp(() => invoke('file_move', { source: fullPath, destination: dest }));
-  hideFileStatus();
-  await load();
+  if (renamed) await load();
 }
 
 async function fileOpCopyPath(fullPath) {
@@ -668,7 +660,7 @@ async function fileOpCopyPath(fullPath) {
   }
 }
 
-function showFileContextMenu(e, nodePath, isDir) {
+function showFileContextMenu(e, nodePath) {
   e.preventDefault();
   e.stopPropagation();
   currentTreePath = nodePath;
@@ -700,24 +692,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const row = e.target.closest('.tree-row');
     if (!row) return;
     selectTreeRow(row);
-    const li = row.closest('li');
-    const isDir = li && li.classList.contains('tree-dir');
-    const nameEl = row.querySelector('.tree-name');
-    if (!nameEl) return;
-    const name = nameEl.textContent;
-
-    let nodePath = name;
-    let parent = row.parentElement;
-    while (parent && parent.closest('.tree-children')) {
-      const parentDir = parent.closest('li');
-      if (parentDir) {
-        const parentNameEl = parentDir.querySelector('.tree-name');
-        if (parentNameEl) nodePath = parentNameEl.textContent + '/' + nodePath;
-      }
-      parent = parent.parentElement;
-    }
-
-    showFileContextMenu(e, nodePath, isDir);
+    const nodePath = row.dataset.path;
+    if (!nodePath) return;
+    showFileContextMenu(e, nodePath);
   });
 
   function activateFileContextItem(item) {
@@ -726,22 +703,15 @@ document.addEventListener('DOMContentLoaded', () => {
     closeFileContextMenu();
     if (!path) return;
 
-    const fullPath = getDownloadDir() + '/' + path;
     const parts = path.split('/');
     const name = parts[parts.length - 1];
 
     switch (action) {
       case 'rename':
-        fileOpRename(fullPath, name);
+        fileOpRename(path, name);
         break;
       case 'copy':
-        fileOpCopyPath(fullPath);
-        break;
-      case 'move':
-        fileOpMove(fullPath);
-        break;
-      case 'delete':
-        fileOpDelete(fullPath, name);
+        fileOpCopyPath(getFullPath(path));
         break;
     }
   }

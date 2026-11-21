@@ -242,15 +242,9 @@ const en = {
   // File operations
   'file_op.rename': 'Rename',
   'file_op.copy_path': 'Copy Path',
-  'file_op.move': 'Move to…',
-  'file_op.delete': 'Delete',
   'file_op.error': 'Operation failed',
   'file_op.rename_msg': 'Enter new name:',
   'file_op.renaming': 'Renaming\u2026',
-  'file_op.delete_msg': 'Delete "{name}"?',
-  'file_op.deleting': 'Deleting\u2026',
-  'file_op.move_msg': 'Enter destination path:',
-  'file_op.moving': 'Moving\u2026',
   'file_op.copy_failed': 'Failed to copy path to clipboard',
 
   // About dialog
@@ -483,15 +477,9 @@ const bg = {
 
   'file_op.rename': 'Преименувай',
   'file_op.copy_path': 'Копирай път',
-  'file_op.move': 'Премести към\u2026',
-  'file_op.delete': 'Изтрий',
   'file_op.error': 'Грешка при операция',
   'file_op.rename_msg': 'Въведете ново име:',
   'file_op.renaming': 'Преименуване\u2026',
-  'file_op.delete_msg': 'Изтрийте "{name}"?',
-  'file_op.deleting': 'Изтриване\u2026',
-  'file_op.move_msg': 'Въведете път за местене:',
-  'file_op.moving': 'Местене\u2026',
   'file_op.copy_failed': 'Грешка при копиране на път',
 
   'about.title': 'Относно rTransmission Client',

@@ -11,7 +11,7 @@
 - **Frontend:** static files in `/web`, served as `frontendDist: "web"`. There is NO npm/package.json — do not run `npm install`; edit files directly.
 - **Windows:** `main` (defined in `tauri.conf.json`) plus dialog windows created on demand via the shared helper `open_dialog_window` (`src/windows.rs`): `properties`, `settings`, `connection-settings`, `add`, `delete`, `about`. Each dialog window has its own `*.html`/`*.js`/`*.css` in `/web` and is centered on the main window (both on first open and on re-open). There are NO in-page overlay dialogs in `index.html` anymore.
 - **Config:** `tauri.conf.json`, `capabilities/default.json`, `Cargo.toml`.
-- **Plugins:** opener, dialog, fs, window-state, single-instance, deep-link (magnet scheme), log.
+- **Plugins:** opener, dialog, window-state, single-instance, deep-link (magnet scheme), log.
 - **Platform:** Windows, Linux, macOS. Feature differences handled with `#[cfg(...)]` in Rust.
 
 ## 3. Architecture & Data Flow (important)
@@ -29,11 +29,10 @@
 - `settings.rs` — `Theme`, `Settings`, base64 encode/decode, `load_settings`/`save_settings`, commands `get_settings`/`set_settings`.
 - `models.rs` — all serde DTOs (`TorrentInfo`, `TorrentFile`, `TorrentDetails`, `SessionStatsInfo`, `AltSpeedInfo`, `SessionSettings`, `ConnectRequest`).
 - `raw_rpc.rs` — `RawRpc` (raw HTTP RPC with session-id retry): `call`, `alt_speed`, `get/set_session_settings`.
-- `rpc.rs` — all `rpc_*` commands + `is_connected`, torrent field lists, `map_torrents`, `fetch_torrent_details`, `pause_after_metadata_poll`.
+- `rpc.rs` — all `rpc_*` commands + `is_connected`, torrent field lists, `map_torrents`, `fetch_torrent_details`, `pause_after_metadata_poll`; file/directory rename uses Transmission's `torrent-rename-path` RPC.
 - `windows.rs` — `show_main_window`, `ensure_main_visible`, `center_on_main`, `open_dialog_window`/`DialogWindowSpec`, all `open_*_window` + payload getter commands, `close_dialog_window`.
 - `menu.rs` — `mark_active`, command `update_menu_markers`, `setup_app_menu` (menu bar + `on_menu_event` → `menu-*` emits), `setup_tray`.
 - `poll.rs` — `spawn_poll_loop` (1s loop: `torrents-update`, `session-stats-update`, `alt-speed-update`, pause-after-metadata).
-- `fs_ops.rs` — commands `file_rename`/`file_delete`/`file_move` with `run_fs_with_timeout`.
 - `notifications.rs` — command `send_notification` (per-platform: osascript / notify-rust / PowerShell toast).
 - **Visibility rule:** items shared across modules are `pub(crate)`; root-level `#[tauri::command]` fns in `lib.rs` must stay private (a `pub(crate)` one triggers E0255 — its `#[macro_export]` wrapper macro would collide at crate root), while commands in submodules must be `pub(crate)` so `generate_handler![module::cmd]` can reach them.
 

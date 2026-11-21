@@ -29,7 +29,7 @@ The app connects to an already running Transmission daemon over RPC (HTTP/HTTPS)
 | Backend | Rust (edition 2024), Tauri v2, `transmission-rpc`, `reqwest` (rustls), `tokio` |
 | Frontend | Static HTML/CSS/JS in `web/` — **no** `package.json`/npm |
 | Configuration | `tauri.conf.json`, `capabilities/default.json`, `Cargo.toml` |
-| Plugins | opener, dialog, fs, window-state, single-instance, deep-link, log |
+| Plugins | opener, dialog, window-state, single-instance, deep-link, log |
 
 ---
 

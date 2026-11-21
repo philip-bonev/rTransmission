@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod fs_ops;
 mod menu;
 mod models;
 mod notifications;
@@ -121,7 +120,6 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_denylist(&[
@@ -167,6 +165,7 @@ pub fn run() {
             rpc::rpc_torrent_remove,
             rpc::rpc_queue_move,
             rpc::rpc_get_free_space,
+            rpc::rpc_torrent_rename_path,
             windows::open_properties_window,
             windows::get_properties_torrent_id,
             windows::open_settings_window,
@@ -182,9 +181,6 @@ pub fn run() {
             rpc::rpc_set_files_wanted,
             rpc::rpc_set_files_priority,
             menu::update_menu_markers,
-            fs_ops::file_rename,
-            fs_ops::file_delete,
-            fs_ops::file_move,
             get_about_info,
             notifications::send_notification,
         ])

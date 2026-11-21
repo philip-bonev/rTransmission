@@ -19,7 +19,6 @@
     "core:window:allow-set-title",
     "opener:default",
     "dialog:default",
-    "fs:default",
     "window-state:default"
   ]
 }

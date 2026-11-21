@@ -391,6 +391,44 @@ pub(crate) async fn rpc_get_free_space(
 }
 
 #[tauri::command]
+pub(crate) async fn rpc_torrent_rename_path(
+    id: i64,
+    path: String,
+    name: String,
+    raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
+) -> Result<(), String> {
+    let name = name.trim();
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains('\0')
+    {
+        return Err("The new name must be a non-empty file or directory name".to_string());
+    }
+    if path.is_empty() || path.starts_with('/') || path.starts_with('\\') {
+        return Err("Invalid torrent-relative path".to_string());
+    }
+
+    let guard = raw_state.lock().await;
+    let raw = guard.as_ref().ok_or("Not connected")?;
+    let json = raw
+        .call(
+            "torrent-rename-path",
+            Some(serde_json::json!({ "ids": [id], "path": path, "name": name })),
+        )
+        .await?;
+    if json["result"].as_str() != Some("success") {
+        return Err(format!(
+            "Transmission rejected the request: {}",
+            json["result"].as_str().unwrap_or("unknown")
+        ));
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub(crate) async fn rpc_torrent_remove(
     ids: Vec<i64>,
     delete_data: bool,
