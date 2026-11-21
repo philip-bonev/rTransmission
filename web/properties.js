@@ -462,11 +462,18 @@ async function load() {
   await applyTheme();
   const message = document.getElementById('properties-message');
   const content = document.getElementById('properties-content');
+  function showError(text) {
+    currentId = null;
+    torrentDownloadDir = '';
+    message.textContent = text;
+    message.classList.remove('hidden');
+    content.classList.add('hidden');
+  }
   try {
     const id = await invoke('get_properties_torrent_id');
     if (id == null) {
       if (revision !== loadRevision) return;
-      message.textContent = t('prop.no_torrent');
+      showError(t('prop.no_torrent'));
       return;
     }
     const data = await invoke('rpc_get_torrent_details', { id });
@@ -480,7 +487,7 @@ async function load() {
     applyTranslations();
   } catch (error) {
     if (revision !== loadRevision) return;
-    message.textContent = t('prop.load_failed') + ': ' + error;
+    showError(t('prop.load_failed') + ': ' + error);
   }
 }
 
@@ -702,7 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const action = item.dataset.action;
     const path = currentTreePath;
     closeFileContextMenu();
-    if (!path) return;
+    if (!path || currentId == null) return;
 
     const parts = path.split('/');
     const name = parts[parts.length - 1];

@@ -18,6 +18,7 @@ const { listen } = window.__TAURI__.event;
 
 let deleteIds = [];
 let deleteEpoch = null;
+let deleting = false;
 
 async function applyTheme() {
   let theme = 'auto';
@@ -67,17 +68,21 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('delete-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (deleting) return;
     const deleteData = document.getElementById('delete-data-checkbox').checked;
     const ids = deleteIds.slice();
     if (ids.length === 0) {
       closeDialog();
       return;
     }
+    deleting = true;
     try {
       await invoke('rpc_torrent_remove', { ids, deleteData, epoch: deleteEpoch });
     } catch (error) {
       console.error('Action failed:', error);
       alert(`${t('error.action_failed')}: ` + error);
+    } finally {
+      deleting = false;
     }
     closeDialog();
   });
@@ -88,6 +93,18 @@ window.addEventListener('DOMContentLoaded', async () => {
       closeDialog();
     }
   });
+
+  listen('connection-changed', (event) => {
+    const next = event.payload || {};
+    if (!next.connected || (deleteEpoch !== null && next.epoch !== deleteEpoch)) {
+      closeDialog();
+    }
+  }).catch(() => {});
+
+  listen('delete-data', (event) => {
+    if (deleting) return;
+    applyIds(event.payload);
+  }).catch(() => {});
 
   try {
     const state = await invoke('get_connection_state');
@@ -102,15 +119,4 @@ window.addEventListener('DOMContentLoaded', async () => {
   } catch (error) {
     console.error('Failed to load delete ids:', error);
   }
-
-  listen('connection-changed', (event) => {
-    const next = event.payload || {};
-    if (!next.connected || (deleteEpoch !== null && next.epoch !== deleteEpoch)) {
-      closeDialog();
-    }
-  }).catch(() => {});
-
-  listen('delete-data', (event) => {
-    applyIds(event.payload);
-  }).catch(() => {});
 });

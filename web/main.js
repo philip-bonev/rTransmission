@@ -759,12 +759,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     sortDir: sortAscending ? 'asc' : 'desc',
     filter: filterState,
   });
-  if (settings.auto_connect) {
-    await connect(true);
-  }
-  if (cliFile) {
-    await handleIncomingTorrent(cliFile);
-  }
 
   const body = document.body;
   let dragCounter = 0;
@@ -827,4 +821,11 @@ window.addEventListener('DOMContentLoaded', async () => {
       console.error('Failed to open about window:', error);
     });
   });
+
+  if (settings.auto_connect) {
+    await connect(true);
+  }
+  if (cliFile) {
+    await handleIncomingTorrent(cliFile);
+  }
 });

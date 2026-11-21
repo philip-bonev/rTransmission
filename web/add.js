@@ -121,6 +121,8 @@ async function applyPayload(payload) {
 }
 
 let dirOptions = [];
+let submitting = false;
+let freeSpaceRequest = 0;
 
 function getLastDownloadDirs() {
   try {
@@ -196,18 +198,22 @@ function moveLocationSelection(delta) {
 function updateFreeSpace() {
   const el = document.getElementById('add-free-space');
   const path = document.getElementById('add-download-dir').value.trim();
+  const request = ++freeSpaceRequest;
   if (!path || !connected) {
     el.textContent = '';
     el.classList.add('hidden');
     return;
   }
   el.textContent = t('add.checking_free_space');
+  el.classList.remove('hidden');
   invoke('rpc_get_free_space', { path })
     .then(bytes => {
+      if (request !== freeSpaceRequest) return;
       el.textContent = `${t('add.free_space')}: ${formatBytes(bytes)}`;
       el.classList.remove('hidden');
     })
     .catch(() => {
+      if (request !== freeSpaceRequest) return;
       el.textContent = '';
       el.classList.add('hidden');
     });
@@ -294,6 +300,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('add-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (submitting) return;
     const value = document.getElementById('add-input').value.trim();
     if (!value) {
       showAddError(t('add.empty_input'));
@@ -303,7 +310,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     const downloadDir = document.getElementById('add-download-dir').value.trim() || null;
     if (downloadDir) saveLastDownloadDir(downloadDir);
     const pauseAfterMetadata = document.getElementById('add-pause-after-metadata').checked;
-    const ok = await addTorrent(value, downloadDir, pauseAfterMetadata);
+    submitting = true;
+    let ok = false;
+    try {
+      ok = await addTorrent(value, downloadDir, pauseAfterMetadata);
+    } finally {
+      submitting = false;
+    }
     if (ok) closeDialog();
   });
 
@@ -314,14 +327,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  listen('add-data', (event) => {
+    if (submitting) return;
+    applyPayload(event.payload);
+  }).catch(() => {});
+
   try {
     const payload = await invoke('get_add_payload');
     await applyPayload(payload);
   } catch (error) {
     console.error('Failed to load add payload:', error);
   }
-
-  listen('add-data', (event) => {
-    applyPayload(event.payload);
-  }).catch(() => {});
 });
