@@ -310,3 +310,51 @@ fn find_file_in_args(args: impl Iterator<Item = String>) -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{find_file_in_args, is_torrent_input};
+
+    #[test]
+    fn recognizes_supported_torrent_inputs() {
+        assert!(is_torrent_input("magnet:?xt=urn:btih:abc"));
+        assert!(is_torrent_input("https://example.com/file.torrent"));
+        assert!(is_torrent_input("/tmp/Ubuntu.TORRENT"));
+        assert!(is_torrent_input("downloads/example.magnet"));
+    }
+
+    #[test]
+    fn ignores_unrelated_arguments() {
+        assert!(!is_torrent_input("/usr/bin/app"));
+        assert!(!is_torrent_input("--flag"));
+        assert!(!is_torrent_input("ftp://example.com/file.txt"));
+    }
+
+    #[test]
+    fn finds_first_torrent_argument() {
+        let args = vec![
+            "app".to_string(),
+            "--verbose".to_string(),
+            "/tmp/a.torrent".to_string(),
+        ];
+        assert_eq!(
+            find_file_in_args(args.into_iter()),
+            Some("/tmp/a.torrent".to_string())
+        );
+    }
+
+    #[test]
+    fn converts_file_urls_to_paths() {
+        let args = vec!["file:///tmp/a%20b.torrent".to_string()];
+        assert_eq!(
+            find_file_in_args(args.into_iter()),
+            Some("/tmp/a b.torrent".to_string())
+        );
+    }
+
+    #[test]
+    fn returns_none_without_torrent_argument() {
+        let args = vec!["app".to_string(), "--help".to_string()];
+        assert_eq!(find_file_in_args(args.into_iter()), None);
+    }
+}

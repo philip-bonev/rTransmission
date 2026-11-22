@@ -44,6 +44,14 @@ fn req_bool(args: &Value, key: &str) -> Result<bool, String> {
         .ok_or_else(|| format!("'{key}' is not a boolean"))
 }
 
+fn validate_response(json: &Value) -> Result<(), String> {
+    match json.get("result").and_then(Value::as_str) {
+        Some("success") => Ok(()),
+        Some(other) => Err(format!("Transmission error: {other}")),
+        None => Err("Transmission returned a malformed response".to_string()),
+    }
+}
+
 pub(crate) struct RawRpc {
     pub url: url::Url,
     pub auth: Option<BasicAuth>,
@@ -90,11 +98,8 @@ impl RawRpc {
                 .json()
                 .await
                 .map_err(|e| format!("Decode error: {}", e))?;
-            return match json.get("result").and_then(Value::as_str) {
-                Some("success") => Ok(json),
-                Some(other) => Err(format!("Transmission error: {other}")),
-                None => Err("Transmission returned a malformed response".to_string()),
-            };
+            validate_response(&json)?;
+            return Ok(json);
         }
         Err("Max retries reached".to_string())
     }
@@ -182,5 +187,48 @@ impl RawRpc {
         )
         .await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn validate_response_accepts_success() {
+        assert!(validate_response(&json!({ "result": "success" })).is_ok());
+    }
+
+    #[test]
+    fn validate_response_rejects_transmission_error() {
+        let error = validate_response(&json!({ "result": "duplicate torrent" })).unwrap_err();
+        assert_eq!(error, "Transmission error: duplicate torrent");
+    }
+
+    #[test]
+    fn validate_response_rejects_malformed_payloads() {
+        assert!(validate_response(&json!({})).is_err());
+        assert!(validate_response(&json!({ "result": 1 })).is_err());
+        assert!(validate_response(&json!(null)).is_err());
+    }
+
+    #[test]
+    fn field_helpers_report_missing_and_wrong_types() {
+        let args = json!({ "count": 5, "enabled": true, "ratio": 2.5 });
+        assert_eq!(req_i64(&args, "count").unwrap(), 5);
+        assert_eq!(req_i32(&args, "count").unwrap(), 5);
+        assert!(req_bool(&args, "enabled").unwrap());
+        assert_eq!(req_f64(&args, "ratio").unwrap(), 2.5);
+        assert!(field(&args, "missing").is_err());
+        assert!(req_i64(&args, "enabled").is_err());
+        assert!(req_bool(&args, "count").is_err());
+        assert!(req_f64(&args, "missing").is_err());
+    }
+
+    #[test]
+    fn integer_fields_are_range_checked() {
+        let args = json!({ "big": i64::from(i32::MAX) + 1 });
+        assert!(req_i32(&args, "big").is_err());
     }
 }

@@ -201,3 +201,88 @@ pub(crate) fn set_settings(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    static FILE_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+    fn temp_path() -> PathBuf {
+        let unique = FILE_COUNTER.fetch_add(1, Ordering::SeqCst);
+        std::env::temp_dir().join(format!(
+            "rtransmission-settings-test-{}-{unique}.json",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn base64_round_trips_ascii_and_unicode() {
+        for value in ["", "secret", "парола", "p@ss/w0rd+="] {
+            let encoded = base64_encode(value.as_bytes());
+            assert_eq!(base64_decode(&encoded).as_deref(), Some(value));
+        }
+    }
+
+    #[test]
+    fn missing_config_uses_defaults() {
+        let path = temp_path();
+        let settings = load_settings(&path);
+        assert_eq!(settings.rpc_host, "localhost");
+        assert_eq!(settings.rpc_port, 9091);
+        assert!(settings.auto_connect);
+        assert_eq!(settings.notification_duration, 5);
+    }
+
+    #[test]
+    fn legacy_config_gets_defaults_for_new_fields() {
+        let json = r#"{
+            "rpc_host": "nas.local",
+            "rpc_port": 9092,
+            "rpc_auth": true,
+            "rpc_username": "user",
+            "rpc_password": "c2VjcmV0"
+        }"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.rpc_host, "nas.local");
+        assert_eq!(settings.rpc_port, 9092);
+        assert!(settings.auto_connect);
+        assert!(settings.notifications_enabled);
+        assert_eq!(settings.notification_duration, 5);
+        assert!(settings.minimize_to_tray);
+        assert_eq!(settings.theme, Theme::Auto);
+        assert_eq!(settings.default_download_dir, None);
+    }
+
+    #[test]
+    fn password_is_obfuscated_on_disk_and_restored_on_load() {
+        let path = temp_path();
+        let settings = Settings {
+            rpc_password: "super secret".to_string(),
+            theme: Theme::Dark,
+            ..Default::default()
+        };
+
+        save_settings(&path, &settings).unwrap();
+        let raw = fs::read_to_string(&path).unwrap();
+        assert!(!raw.contains("super secret"));
+        assert!(raw.contains(&base64_encode(b"super secret")));
+
+        let loaded = load_settings(&path);
+        assert_eq!(loaded.rpc_password, "super secret");
+        assert_eq!(loaded.theme, Theme::Dark);
+
+        fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn empty_password_stays_empty_on_disk() {
+        let path = temp_path();
+        let settings = Settings::default();
+        save_settings(&path, &settings).unwrap();
+        let loaded = load_settings(&path);
+        assert!(loaded.rpc_password.is_empty());
+        fs::remove_file(&path).unwrap();
+    }
+}

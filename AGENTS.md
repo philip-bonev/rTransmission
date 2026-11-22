@@ -52,6 +52,7 @@
 - **macOS code signing (required for Local Network):** Since the macOS 27 update, ad-hoc signed builds cannot reach LAN hosts like the Transmission daemon (TCC Local Network permission is never remembered for a CDHash identity). `bundle.macOS.signingIdentity` in `tauri.conf.json` signs every build with the self-signed "rTransmission Dev" certificate. On a new Mac, create that certificate first: Keychain Access → Certificate Assistant → Create a Certificate → name "rTransmission Dev", type Code Signing (or `openssl` self-signed cert + `security import` + `security add-trusted-cert -r trustRoot -p codeSign`), then `tccutil reset LocalNetwork com.bonev.philip.rtransmission-client`, launch the app from Finder and accept the Local Network prompt. `macos/Info.plist` supplies `NSLocalNetworkUsageDescription` so the prompt actually appears.
 - **Lint Rust:** `cargo clippy`
 - **Format Rust:** `cargo fmt`
+- **Test Rust:** `cargo test --all-targets` (unit tests for RPC response validation, torrent path/name validation, settings persistence/base64, CLI input detection)
 - **Verify JS:** `node --check web/<file>.js`
 - **Version:** bump BOTH `Cargo.toml` and `tauri.conf.json` `version`.
 

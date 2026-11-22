@@ -32,6 +32,29 @@ use crate::raw_rpc::RawRpc;
 use crate::settings::base64_encode;
 use crate::state::{self, PROPERTIES_ID};
 
+fn validate_torrent_path(path: &str) -> Result<(), String> {
+    if path.is_empty() || path.starts_with('/') || path.starts_with('\\') {
+        return Err("Invalid torrent-relative path".to_string());
+    }
+    if path.contains('\0') || path.split(['/', '\\']).any(|part| part == "..") {
+        return Err("Invalid torrent-relative path".to_string());
+    }
+    Ok(())
+}
+
+fn validate_torrent_name(name: &str) -> Result<(), String> {
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains('\0')
+    {
+        return Err("The new name must be a non-empty file or directory name".to_string());
+    }
+    Ok(())
+}
+
 fn status_to_string(status: &TorrentStatus) -> String {
     match status {
         TorrentStatus::Stopped => "Stopped",
@@ -393,18 +416,8 @@ pub(crate) async fn rpc_torrent_rename_path(
     raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
 ) -> Result<(), String> {
     let name = name.trim();
-    if name.is_empty()
-        || name == "."
-        || name == ".."
-        || name.contains('/')
-        || name.contains('\\')
-        || name.contains('\0')
-    {
-        return Err("The new name must be a non-empty file or directory name".to_string());
-    }
-    if path.is_empty() || path.starts_with('/') || path.starts_with('\\') {
-        return Err("Invalid torrent-relative path".to_string());
-    }
+    validate_torrent_name(name)?;
+    validate_torrent_path(&path)?;
 
     let guard = raw_state.lock().await;
     let raw = guard.as_ref().ok_or("Not connected")?;
@@ -673,4 +686,41 @@ pub(crate) async fn get_connection_state(
         connected: has_client && state::connection_alive(),
         epoch: state::connection_epoch(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{validate_torrent_name, validate_torrent_path};
+
+    #[test]
+    fn accepts_plain_torrent_names() {
+        assert!(validate_torrent_name("episode.mkv").is_ok());
+        assert!(validate_torrent_name("season 1").is_ok());
+    }
+
+    #[test]
+    fn rejects_path_like_torrent_names() {
+        for name in ["", ".", "..", "a/b", "a\\b", "bad\0name"] {
+            assert!(validate_torrent_name(name).is_err(), "accepted {name:?}");
+        }
+    }
+
+    #[test]
+    fn accepts_relative_torrent_paths() {
+        assert!(validate_torrent_path("file.mkv").is_ok());
+        assert!(validate_torrent_path("season 1/episode.mkv").is_ok());
+    }
+
+    #[test]
+    fn rejects_absolute_or_escaping_torrent_paths() {
+        for path in [
+            "",
+            "/etc/passwd",
+            "\\server\\share",
+            "../secret",
+            "a/../../b",
+        ] {
+            assert!(validate_torrent_path(path).is_err(), "accepted {path:?}");
+        }
+    }
 }
