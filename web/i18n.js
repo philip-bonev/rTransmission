@@ -106,7 +106,7 @@ const en = {
   'add.browse': 'Browse',
   'add.checking_free': 'Checking free space\u2026',
   'add.checking_free_space': 'Checking free space\u2026',
-  'add.free_space': 'Free space: ',
+  'add.free_space': 'Free space',
   'add.empty_input': 'Enter a URL, magnet link, or torrent file path',
 
   // Delete dialog
@@ -228,11 +228,11 @@ const en = {
   'error.file_not_exist': 'File does not exist: ',
   'error.connect_failed': 'Connection failed: ',
   'error.connection_failed': 'Connection failed',
-  'error.action_failed': 'Action failed: ',
+  'error.action_failed': 'Action failed',
   'error.alt_speed_failed': 'Failed to toggle speed mode: ',
   'error.toggle_speed': 'Failed to toggle speed mode',
   'error.settings_save_failed': 'Failed to save remote settings: ',
-  'error.save_settings': 'Failed to save remote settings',
+  'error.save_settings': 'Failed to save settings',
   'error.file_select_failed': 'Failed to update file selection: ',
   'error.file_priority_failed': 'Failed to update file priority',
 
@@ -356,7 +356,7 @@ const bg = {
   'add.browse': 'Избор',
   'add.checking_free': 'Проверка на свободно място\u2026',
   'add.checking_free_space': 'Проверка на свободно място\u2026',
-  'add.free_space': 'Свободно място: ',
+  'add.free_space': 'Свободно място',
   'add.empty_input': 'Въведете URL, магнит линк или път до торент файл',
 
   'delete.title': 'Изтриване на торент',
@@ -469,7 +469,7 @@ const bg = {
   'error.file_not_exist': 'Файлът не съществува: ',
   'error.connect_failed': 'Грешка при свързване: ',
   'error.connection_failed': 'Грешка при свързване',
-  'error.action_failed': 'Грешка при действие: ',
+  'error.action_failed': 'Грешка при действие',
   'error.alt_speed_failed': 'Грешка при превключване на скоростта: ',
   'error.toggle_speed': 'Грешка при превключване на скоростта',
   'error.settings_save_failed': 'Грешка при запис на настройките: ',

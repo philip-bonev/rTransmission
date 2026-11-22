@@ -379,6 +379,16 @@ body.drag-over::after {
     padding: 4px;
 }
 
+.context-submenu.flip-left {
+    left: auto;
+    right: 100%;
+}
+
+.context-submenu.flip-up {
+    top: auto;
+    bottom: -4px;
+}
+
 .has-submenu:hover > .context-submenu,
 .has-submenu:focus-within > .context-submenu {
     display: block;

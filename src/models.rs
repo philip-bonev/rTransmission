@@ -31,6 +31,7 @@ pub(crate) struct TorrentInfo {
     pub download_dir: String,
     pub error: bool,
     pub error_string: String,
+    pub is_finished: bool,
 }
 
 #[derive(Debug, Serialize, Clone)]

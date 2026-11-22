@@ -16,7 +16,18 @@
 use crate::windows::show_main_window;
 
 #[tauri::command]
-pub(crate) fn send_notification(
+pub(crate) async fn send_notification(
+    app: tauri::AppHandle,
+    title: String,
+    body: String,
+    duration: u32,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || show_notification(app, title, body, duration))
+        .await
+        .map_err(|e| format!("Notification task failed: {e}"))?
+}
+
+fn show_notification(
     app: tauri::AppHandle,
     title: String,
     body: String,
@@ -93,7 +104,7 @@ pub(crate) fn send_notification(
             if duration > 0 {
                 duration.saturating_mul(1000) as i32
             } else {
-                -1
+                60_000
             },
         );
         std::process::Command::new("powershell")

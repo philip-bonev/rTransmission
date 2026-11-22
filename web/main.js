@@ -44,7 +44,7 @@ function checkTorrentNotifications(torrents) {
       const isStopped = tor.status === 'Stopped';
       if (!wasDone && isDone) {
         showNotification('rTransmission', t('notify.download_done', { name: tor.name }));
-      } else if (wasSeeding && isDone && isStopped) {
+      } else if (wasSeeding && isStopped && tor.is_finished) {
         showNotification('rTransmission', t('notify.seeding_done', { name: tor.name }));
       }
     }
@@ -251,10 +251,12 @@ function updateConnectionState(isConnected) {
   updateAltSpeedState(false);
   const conn = document.getElementById('status-connection');
   if (conn) {
-    conn.textContent = isConnected ? `● ${t('status.connected')}` : `● ${t('status.disconnected')}`;
+    conn.textContent = isConnected ? t('status.connected') : t('status.disconnected');
     conn.classList.toggle('status-connected', isConnected);
     conn.classList.toggle('status-disconnected', !isConnected);
   }
+  const altSpeedBtn = document.getElementById('alt-speed-btn');
+  if (altSpeedBtn) altSpeedBtn.disabled = !isConnected;
   const transfer = document.getElementById('status-transfer');
   if (transfer) {
     transfer.classList.toggle('hidden', !isConnected);
@@ -402,10 +404,10 @@ async function openDeleteWindow() {
 
 function updateContextMenuChecks() {
   document.querySelectorAll('#ctx-filter-submenu .context-item').forEach(el => {
-    el.textContent = (el.dataset.filter === filterState ? '✓ ' : '') + el.dataset.label;
+    el.textContent = (el.dataset.filter === filterState ? '✓ ' : '') + t(el.dataset.label);
   });
   document.querySelectorAll('#ctx-sort-submenu .context-item').forEach(el => {
-    const base = el.dataset.label;
+    const base = t(el.dataset.label);
     if (el.dataset.sort) {
       el.textContent = (el.dataset.sort === sortState ? '✓ ' : '') + base;
     } else if (el.dataset.sortDir) {
@@ -413,6 +415,10 @@ function updateContextMenuChecks() {
       el.textContent = (active ? '✓ ' : '') + base;
     }
   });
+}
+
+function currentMarker() {
+  return { sort: sortState, sortDir: sortAscending ? 'asc' : 'desc', filter: filterState };
 }
 
 function openContextMenu(x, y) {
@@ -424,6 +430,14 @@ function openContextMenu(x, y) {
   const py = Math.max(4, Math.min(y, window.innerHeight - rect.height - 4));
   menu.style.left = px + 'px';
   menu.style.top = py + 'px';
+  menu.querySelectorAll('.context-submenu').forEach(sub => {
+    sub.classList.remove('flip-left', 'flip-up');
+    sub.style.display = 'block';
+    const subRect = sub.getBoundingClientRect();
+    if (subRect.right > window.innerWidth - 4) sub.classList.add('flip-left');
+    if (subRect.bottom > window.innerHeight - 4) sub.classList.add('flip-up');
+    sub.style.display = '';
+  });
 }
 
 function closeContextMenu() {
@@ -658,7 +672,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     const item = e.target.closest('.context-item');
     if (!item) return;
     closeContextMenu();
-    const marker = { sort: sortState, sortDir: sortAscending ? 'asc' : 'desc', filter: filterState };
     if (item.dataset.action) {
       const action = item.dataset.action;
       if (action === 'delete') {
@@ -671,19 +684,19 @@ window.addEventListener('DOMContentLoaded', async () => {
       filterState = item.dataset.filter;
       document.getElementById('filter-select').value = filterState;
       renderTorrents(torrentsCache);
-      invoke('update_menu_markers', marker);
+      invoke('update_menu_markers', currentMarker());
     } else if (item.dataset.sort) {
       sortState = item.dataset.sort;
       document.getElementById('sort-select').value = sortState;
       renderTorrents(torrentsCache);
-      invoke('update_menu_markers', marker);
+      invoke('update_menu_markers', currentMarker());
     } else if (item.dataset.sortDir) {
       sortAscending = item.dataset.sortDir === 'asc';
       document.getElementById('sort-asc').checked = sortAscending;
       const label = document.querySelector('#sort-asc-label');
       if (label) label.lastChild.textContent = sortAscending ? ' ' + t('sort.asc') : ' ' + t('sort.desc');
       renderTorrents(torrentsCache);
-      invoke('update_menu_markers', marker);
+      invoke('update_menu_markers', currentMarker());
     }
   });
 

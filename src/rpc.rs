@@ -86,6 +86,7 @@ pub(crate) fn torrent_fields() -> Vec<TorrentGetField> {
         TorrentGetField::Error,
         TorrentGetField::ErrorString,
         TorrentGetField::MetadataPercentComplete,
+        TorrentGetField::IsFinished,
     ]
 }
 
@@ -122,6 +123,7 @@ pub(crate) fn map_torrents(torrents: &[Torrent]) -> Vec<TorrentInfo> {
             download_dir: t.download_dir.clone().unwrap_or_default(),
             error: t.error_string.is_some() && !t.error_string.as_ref().unwrap().is_empty(),
             error_string: t.error_string.clone().unwrap_or_default(),
+            is_finished: t.is_finished.unwrap_or(false),
         })
         .collect()
 }

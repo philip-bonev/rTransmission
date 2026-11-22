@@ -231,7 +231,7 @@ async function setFilesWanted(indices, wanted) {
     return true;
   } catch (error) {
     console.error('Failed to update file selection:', error);
-    alert('Failed to update file selection: ' + error);
+    alert(t('error.file_select_failed') + error);
     return false;
   }
 }
