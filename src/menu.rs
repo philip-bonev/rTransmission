@@ -55,29 +55,53 @@ pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
         true,
         None::<&str>,
     )?;
-    let app_menu = Submenu::with_items(
+    let about = MenuItem::with_id(
         app,
-        app.package_info().name.clone(),
+        "about",
+        "About rTransmission Client",
         true,
-        &[
-            &MenuItem::with_id(
-                app,
-                "about",
-                "About rTransmission Client",
-                true,
-                None::<&str>,
-            )?,
-            &connection_settings,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::services(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::hide(app, None)?,
-            &PredefinedMenuItem::hide_others(app, None)?,
-            &PredefinedMenuItem::show_all(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::quit(app, None)?,
-        ],
+        None::<&str>,
     )?;
+    let quit = PredefinedMenuItem::quit(app, None)?;
+    let app_separator = PredefinedMenuItem::separator(app)?;
+    #[cfg(target_os = "macos")]
+    let quit_separator = PredefinedMenuItem::separator(app)?;
+    let app_menu = {
+        #[cfg(target_os = "macos")]
+        {
+            let services = PredefinedMenuItem::services(app, None)?;
+            let hide = PredefinedMenuItem::hide(app, None)?;
+            let hide_others = PredefinedMenuItem::hide_others(app, None)?;
+            let show_all = PredefinedMenuItem::show_all(app, None)?;
+            let mac_separator = PredefinedMenuItem::separator(app)?;
+            Submenu::with_items(
+                app,
+                app.package_info().name.clone(),
+                true,
+                &[
+                    &about,
+                    &connection_settings,
+                    &app_separator,
+                    &services,
+                    &mac_separator,
+                    &hide,
+                    &hide_others,
+                    &show_all,
+                    &quit_separator,
+                    &quit,
+                ],
+            )?
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            Submenu::with_items(
+                app,
+                app.package_info().name.clone(),
+                true,
+                &[&about, &connection_settings, &app_separator, &quit],
+            )?
+        }
+    };
 
     let add_url = MenuItem::with_id(app, "add-url", "Add Torrent URL…", true, None::<&str>)?;
     let add_magnet = MenuItem::with_id(app, "add-magnet", "Add Magnet Link…", true, None::<&str>)?;

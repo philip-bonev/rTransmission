@@ -6,6 +6,7 @@ authors = ["Philip Bonev"]
 license = "Apache 2.0"
 repository = "https://github.com/philip-bonev/rTransmission.git"
 edition = "2024"
+rust-version = "1.90"
 
 [lib]
 name = "rtransmission_client_lib"

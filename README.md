@@ -37,9 +37,9 @@ The app connects to an already running Transmission daemon over RPC (HTTP/HTTPS)
 
 ### Common
 
-1. **Rust toolchain** — the project uses **edition 2024**, which requires **Rust 1.85 or newer**.
+1. **Rust toolchain** — the project uses **edition 2024** and requires **Rust 1.90 or newer** (minimum enforced by `rust-version` in `Cargo.toml`).
    ```bash
-   rustc --version   # must be >= 1.85
+   rustc --version   # must be >= 1.90
    ```
 2. **Tauri CLI v2** — install via cargo:
    ```bash
@@ -142,11 +142,15 @@ Defaults (host/port/HTTPS, download dir, notifications, tray, limits) are change
 
 ## Architecture (short)
 
-- `src/lib.rs` — the entire Rust backend: RPC to the daemon, settings, dialog windows, tray, deep links, file associations.
+- `src/lib.rs` — crate root: builder, plugins, window events, command registration, CLI/file-argument detection.
 - `src/main.rs` — entry point, calls `lib::run()`.
-- `web/` — static frontend (`index.html` + dialog windows), no build step; `i18n.js` provides translations.
-- Events: Rust emits `torrents-update`, `session-stats-update`, `alt-speed-update`, `menu-*` etc.; JS listens via Tauri `listen()`.
-- Transmission RPC: the typed API is limited — full session settings are read/written via raw RPC (`session-get` / `session-set`).
+- `src/rpc.rs` / `src/raw_rpc.rs` — Transmission RPC commands (typed client + raw HTTP for full session settings), connection lifecycle.
+- `src/settings.rs`, `src/state.rs`, `src/models.rs` — configuration persistence, shared state, DTOs.
+- `src/windows.rs`, `src/menu.rs`, `src/poll.rs`, `src/notifications.rs` — dialog windows, native menu/tray, 1s polling loop, native notifications.
+- `web/` — static frontend (`index.html` + dialog windows), no build step; `i18n.js` provides translations, `dom.js` shared UI helpers.
+- Events: Rust emits `torrents-update`, `session-stats-update`, `alt-speed-update`, `connection-changed`, `menu-*` etc.; JS listens via Tauri `listen()`.
+- Transmission RPC: the typed API is limited — full session settings are read/written via raw RPC (`session-get` / `session-set`), which validates every response.
+- Tests: `cargo test --all-targets`.
 
 ---
 

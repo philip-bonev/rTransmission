@@ -3,7 +3,6 @@
 /gen/schemas
 src-tauri/target/
 src-tauri/gen/
-Cargo.lock
 *.rs.bk
 
 # Logs
