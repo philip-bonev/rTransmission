@@ -243,14 +243,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   await applyTheme();
   applyTranslations();
 
-  document.getElementById('add-close-btn').addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    closeDialog();
-  });
-  document.getElementById('add-cancel-btn').addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    closeDialog();
-  });
+  bindPress(document.getElementById('add-close-btn'), closeDialog);
+  bindPress(document.getElementById('add-cancel-btn'), closeDialog);
 
   document.getElementById('add-browse-btn').addEventListener('click', async () => {
     try {

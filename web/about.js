@@ -53,10 +53,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.error('Failed to load about info:', e);
   }
 
-  document.getElementById('about-close-btn').addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    closeDialog();
-  });
+  bindPress(document.getElementById('about-close-btn'), closeDialog);
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {

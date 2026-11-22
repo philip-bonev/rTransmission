@@ -66,14 +66,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('rpc-auth').addEventListener('change', toggleAuthFields);
 
-  document.getElementById('connection-settings-close-btn').addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    closeDialog();
-  });
-  document.getElementById('connection-settings-cancel-btn').addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    closeDialog();
-  });
+  bindPress(document.getElementById('connection-settings-close-btn'), closeDialog);
+  bindPress(document.getElementById('connection-settings-cancel-btn'), closeDialog);
 
   document.getElementById('connection-settings-form').addEventListener('submit', async (e) => {
     e.preventDefault();

@@ -57,14 +57,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   await applyTheme();
   applyTranslations();
 
-  document.getElementById('delete-close-btn').addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    closeDialog();
-  });
-  document.getElementById('delete-cancel-btn').addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    closeDialog();
-  });
+  bindPress(document.getElementById('delete-close-btn'), closeDialog);
+  bindPress(document.getElementById('delete-cancel-btn'), closeDialog);
 
   document.getElementById('delete-form').addEventListener('submit', async (e) => {
     e.preventDefault();

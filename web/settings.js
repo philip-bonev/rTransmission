@@ -140,14 +140,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     invoke('send_notification', { title: 'rTransmission', body: t('notify.test'), duration });
   });
 
-  document.getElementById('settings-close-btn').addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    closeDialog();
-  });
-  document.getElementById('settings-cancel-btn').addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    closeDialog();
-  });
+  bindPress(document.getElementById('settings-close-btn'), closeDialog);
+  bindPress(document.getElementById('settings-cancel-btn'), closeDialog);
 
   document.getElementById('settings-save-btn').addEventListener('click', async () => {
     let current;
