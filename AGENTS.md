@@ -17,7 +17,7 @@
 ## 3. Architecture & Data Flow (important)
 - **Settings:** stored as JSON at `~/.rtransmission/config.json` (cross-platform via HOME/USERPROFILE). Loaded in `.setup()` into `AppState.settings`. The RPC password is base64-encoded on disk (deliberately NOT keyring — treat as obfuscation, never log it).
 - **State (`tauri::State`):** `AppState` (settings + settings_path + menu item maps), `Mutex<Option<TransClient>>` for the RPC client, `Mutex<Option<RawRpc>>` for raw HTTP RPC, `Mutex<HashSet<i64>>` for pause-after-metadata torrents. Static globals: `CLI_FILE`, `PROPERTIES_ID`, `ADD_PAYLOAD`, `DELETE_IDS` (dialog window payloads).
-- **Settings fields:** `rpc_host`, `rpc_port`, `rpc_auth`, `rpc_username`, `rpc_password`, `rpc_https`, `rpc_insecure`, `auto_connect`, `default_download_dir`, `theme` (`auto`/`light`/`dark`). New fields MUST have `#[serde(default)]` for backward compatibility.
+- **Settings fields:** `rpc_host`, `rpc_port`, `rpc_auth`, `rpc_username`, `rpc_password`, `rpc_https`, `rpc_insecure`, `auto_connect`, `default_download_dir`, `theme` (`auto`/`light`/`dark`), `lang` (`auto`/`en`/`bg`). New fields MUST have `#[serde(default)]` for backward compatibility.
 - **Event flow (Rust emits, JS `listen()`s):** `torrents-update`, `session-stats-update`, `alt-speed-update`, `connection-changed` (`{ connected, epoch }` — emitted on connect success, disconnect and poll-detected connection loss), `file-opened`, `properties-data`, `add-data`, `delete-data`, `settings-changed` (emitted by `set_settings` — main window re-applies theme/notifications), `menu-*` (connection-settings, add-url, add-magnet, add-file, play, pause, delete, verify, sort, sort-dir, filter).
 - **Tauri commands (in `generate_handler`):** `rpc_*` passthrough commands call the Transmission daemon; `get_settings`/`set_settings` manage config; `rpc_get_session_settings`/`rpc_set_session_settings` for remote daemon settings; `get_cli_file`, `validate_torrent_input`, `update_menu_markers`; window commands: `open_properties_window`, `get_properties_torrent_id`, `open_settings_window`, `open_connection_settings_window`, `open_about_window`, `open_add_window` (payload: mode/prefill/dirs/connected), `get_add_payload`, `open_delete_window` (payload: ids), `get_delete_ids`, `close_dialog_window` (refuses to close `main`), `is_connected`, `get_connection_state` (`{ connected, epoch }`).
 - **Invoke arg naming:** JS passes camelCase keys (e.g. `newSettings`), Rust receives snake_case (`new_settings`) — Tauri maps automatically.
@@ -68,10 +68,11 @@
 - **No new Rust crates or JS packages** unless explicitly requested.
 - **Security:** never hardcode or log credentials; password must never be written in plaintext to config (base64 only).
 - **Theme:** `Theme` enum in Rust (Auto/Light/Dark), stored in Settings. Each window applies the theme on load via its own `applyTheme()` (reads `get_settings`). The main window re-applies the theme when it receives the `settings-changed` event. Auto follows `prefers-color-scheme`.
+- **Language:** `Lang` enum in Rust (Auto/En/Bg), stored in Settings. Each window calls `initLanguage()` from `web/i18n.js` before `applyTranslations()`; the main window re-applies translations via `reapplyLanguage()` on `settings-changed`. Native menus honor the setting and rebuild on change (`menu::rebuild_menus`). Auto follows the system locale.
 
 ## 7. i18n (Internationalization)
 - **System:** `web/i18n.js` provides `t(key)` for translations and `applyTranslations()` to update DOM.
-- **Languages:** English (default) and Bulgarian (`bg`). Detection via `navigator.language.startsWith('bg')`.
+- **Languages:** English (default) and Bulgarian (`bg`). Detection via `navigator.language.startsWith('bg')` when the `lang` setting is `auto`; the user can force a language in Settings.
 - **Native menus:** Rust-side labels in `src/menu.rs` use `tr(en, bg)` with system locale detection (`AppleLanguages` on macOS, `GetUserDefaultLocaleName` on Windows, `LC_ALL`/`LC_MESSAGES`/`LANG` elsewhere) and English fallback.
 - **Static text:** Use `data-i18n="key"` on HTML elements for textContent, `data-i18n-title` for title attrs, `data-i18n-placeholder` for placeholder attrs.
 - **Dynamic text:** Call `t('key')` in JS. For parameterized strings, use `t('key', param)` — the dict value is a function `(p) => ...`.

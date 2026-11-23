@@ -240,6 +240,7 @@ async function addTorrent(input, downloadDir = null, pauseAfterMetadata = false)
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  await initLanguage();
   await applyTheme();
   applyTranslations();
 

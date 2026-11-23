@@ -54,6 +54,7 @@ function applyIds(ids) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  await initLanguage();
   await applyTheme();
   applyTranslations();
 

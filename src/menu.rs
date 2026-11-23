@@ -21,6 +21,7 @@ use tauri::State;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
+use crate::settings::Lang;
 use crate::state::AppState;
 
 #[cfg(target_os = "windows")]
@@ -74,16 +75,38 @@ fn system_locale() -> String {
     locale
 }
 
-/// Translate a native menu label. Only English and Bulgarian are supported;
-/// any other system locale falls back to English.
+/// The `lang` setting: `Some("en")`/`Some("bg")` overrides the system locale,
+/// `None` means automatic detection.
+static LANG_OVERRIDE: std::sync::RwLock<Option<&'static str>> = std::sync::RwLock::new(None);
+
+fn sync_lang(app: &tauri::AppHandle) {
+    let lang = app
+        .state::<Mutex<AppState>>()
+        .inner()
+        .lock()
+        .unwrap()
+        .settings
+        .lang
+        .clone();
+    *LANG_OVERRIDE.write().unwrap() = match lang {
+        Lang::Auto => None,
+        Lang::En => Some("en"),
+        Lang::Bg => Some("bg"),
+    };
+}
+
+/// Translate a native menu label. English and Bulgarian are supported; any
+/// other system locale falls back to English.
 fn tr(en: &'static str, bg: &'static str) -> &'static str {
     static LOCALE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    let locale = LOCALE.get_or_init(system_locale);
-    if locale.to_lowercase().starts_with("bg") {
-        bg
-    } else {
-        en
-    }
+    let is_bg = match *LANG_OVERRIDE.read().unwrap() {
+        Some(lang) => lang == "bg",
+        None => LOCALE
+            .get_or_init(system_locale)
+            .to_lowercase()
+            .starts_with("bg"),
+    };
+    if is_bg { bg } else { en }
 }
 
 fn mark_active(items: &HashMap<String, (tauri::menu::MenuItem<tauri::Wry>, String)>, active: &str) {
@@ -110,7 +133,8 @@ pub(crate) fn update_menu_markers(
     mark_active(&state.filter_menu_items, &filter);
 }
 
-pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
+fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    sync_lang(app);
     let connection_settings = MenuItem::with_id(
         app,
         "connection-settings",
@@ -339,8 +363,11 @@ pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
             &filter_menu,
         ],
     )?;
-    app.set_menu(menu)?;
+    Ok(menu)
+}
 
+pub(crate) fn setup_app_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
+    app.set_menu(build_app_menu(app)?)?;
     app.on_menu_event(|app_handle, event| {
         let id = event.id().as_ref();
         match id {
@@ -397,10 +424,28 @@ pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
-pub(crate) fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
+fn build_tray_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let show_i = MenuItem::with_id(app, "tray-show", tr("Show", "Покажи"), true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "tray-quit", tr("Quit", "Изход"), true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+    Menu::with_items(app, &[&show_i, &quit_i])
+}
+
+/// Rebuild the native menus after a language change. Event handlers stay
+/// registered — only the menu items (and their labels) are recreated.
+pub(crate) fn rebuild_menus(app: &tauri::AppHandle) {
+    if let Err(error) = build_app_menu(app).and_then(|menu| app.set_menu(menu)) {
+        log::warn!("Failed to rebuild app menu: {error}");
+    }
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        match build_tray_menu(app).and_then(|menu| tray.set_menu(Some(menu))) {
+            Ok(()) => {}
+            Err(error) => log::warn!("Failed to rebuild tray menu: {error}"),
+        }
+    }
+}
+
+pub(crate) fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let menu = build_tray_menu(app)?;
 
     let minimize_to_tray = app
         .state::<Mutex<AppState>>()

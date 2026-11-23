@@ -46,6 +46,7 @@ function toggleAuthFields() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  await initLanguage();
   await applyTheme();
   applyTranslations();
 

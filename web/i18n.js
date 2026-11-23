@@ -128,6 +128,8 @@ const en = {
   'settings.theme_auto': 'Auto (follow system)',
   'settings.theme_light': 'Light',
   'settings.theme_dark': 'Dark',
+  'settings.language': 'Language',
+  'settings.lang_auto': 'Auto (follow system)',
   'settings.notifications': 'Show notifications when torrents finish',
   'settings.notification_duration': 'Notification duration (seconds, 0 = system default)',
   'settings.test_notification': 'Test notification',
@@ -382,6 +384,8 @@ const bg = {
   'settings.theme_auto': 'Автоматично (следвай системата)',
   'settings.theme_light': 'Светла',
   'settings.theme_dark': 'Тъмна',
+  'settings.language': 'Език',
+  'settings.lang_auto': 'Автоматично (следвай системата)',
   'settings.notifications': 'Показвай нотификации при завършване на торенти',
   'settings.notification_duration': 'Времетраене на нотификациите (секунди, 0 = по подразбиране)',
   'settings.test_notification': 'Тестова нотификация',
@@ -511,11 +515,32 @@ const bg = {
 
 const langs = { en, bg };
 
-let currentLang = 'en';
-try {
-  const nav = navigator.language || '';
-  currentLang = nav.startsWith('bg') ? 'bg' : 'en';
-} catch {}
+function detectLang() {
+  try {
+    const nav = navigator.language || '';
+    return nav.startsWith('bg') ? 'bg' : 'en';
+  } catch {
+    return 'en';
+  }
+}
+
+let currentLang = detectLang();
+
+function applyLanguage(lang) {
+  currentLang = lang === 'en' || lang === 'bg' ? lang : detectLang();
+  return currentLang;
+}
+
+async function initLanguage() {
+  try {
+    const { invoke } = window.__TAURI__.core;
+    const settings = await invoke('get_settings');
+    applyLanguage(settings.lang);
+  } catch {
+    applyLanguage('auto');
+  }
+  return currentLang;
+}
 
 function t(key, vars) {
   let str = (langs[currentLang] && langs[currentLang][key]) || en[key] || key;

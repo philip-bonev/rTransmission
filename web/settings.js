@@ -80,6 +80,7 @@ async function load() {
     const settings = await invoke('get_settings');
     document.getElementById('default-download-dir').value = settings.default_download_dir || '';
     document.getElementById('theme-select').value = settings.theme || 'auto';
+    document.getElementById('lang-select').value = settings.lang || 'auto';
     document.getElementById('notifications-enabled').checked = settings.notifications_enabled !== false;
     document.getElementById('notification-duration').value =
       settings.notification_duration ?? 5;
@@ -125,6 +126,7 @@ async function load() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  await initLanguage();
   await load();
 
   document.getElementById('settings-form').addEventListener('submit', (e) => {
@@ -154,6 +156,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     current.default_download_dir =
       document.getElementById('default-download-dir').value.trim() || null;
     current.theme = document.getElementById('theme-select').value;
+    current.lang = document.getElementById('lang-select').value;
     current.notifications_enabled = document.getElementById('notifications-enabled').checked;
     const duration = readNumber('notification-duration', { integer: true, min: 0, max: 60, fallback: 5 });
     if (duration === null) {
@@ -188,6 +191,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       alert(`${t('error.save_settings')}: ` + error);
       return;
     }
+    applyLanguage(current.lang);
+    applyTranslations();
     if (connected) {
       if (!remoteSettings) {
         alert(t('settings.remote_not_saved'));

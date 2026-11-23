@@ -458,6 +458,7 @@ function renderFiles(files) {
 }
 
 async function load() {
+  await initLanguage();
   const revision = ++loadRevision;
   await applyTheme();
   const message = document.getElementById('properties-message');

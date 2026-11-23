@@ -426,6 +426,21 @@ function currentMarker() {
   return { sort: sortState, sortDir: sortAscending ? 'asc' : 'desc', filter: filterState };
 }
 
+function updateSortDirLabel() {
+  const label = document.querySelector('#sort-asc-label');
+  if (label) label.lastChild.textContent = ' ' + t(sortAscending ? 'sort.asc' : 'sort.desc');
+}
+
+function reapplyLanguage() {
+  applyTranslations();
+  updateContextMenuChecks();
+  updateSortDirLabel();
+  renderTorrents(torrentsCache);
+  const conn = document.getElementById('status-connection');
+  if (conn) conn.textContent = connected ? t('status.connected') : t('status.disconnected');
+  invoke('update_menu_markers', currentMarker());
+}
+
 function openContextMenu(x, y) {
   const menu = document.getElementById('context-menu');
   updateContextMenuChecks();
@@ -464,6 +479,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   currentTheme = settings.theme || 'auto';
   notificationsEnabled = settings.notifications_enabled !== false;
   notificationDuration = settings.notification_duration ?? 5;
+  applyLanguage(settings.lang);
   applyTheme(currentTheme);
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     applyTheme(currentTheme);
@@ -475,6 +491,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     notificationsEnabled = s.notifications_enabled !== false;
     notificationDuration = s.notification_duration ?? 5;
     applyTheme(currentTheme);
+    applyLanguage(s.lang);
+    reapplyLanguage();
   });
 
     document.getElementById('connect-btn')?.addEventListener('click', () => {
@@ -523,10 +541,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   await listen('menu-sort-dir', (event) => {
     sortAscending = event.payload === 'asc';
-    const checkbox = document.getElementById('sort-asc');
-    checkbox.checked = sortAscending;
-    const label = document.querySelector('#sort-asc-label');
-    if (label) label.lastChild.textContent = sortAscending ? ' ' + t('sort.asc') : ' ' + t('sort.desc');
+    document.getElementById('sort-asc').checked = sortAscending;
+    updateSortDirLabel();
     renderTorrents(torrentsCache);
   });
   await listen('menu-filter', (event) => {
@@ -602,8 +618,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('sort-asc')?.addEventListener('change', (e) => {
     sortAscending = e.target.checked;
-    const label = document.querySelector('#sort-asc-label');
-    if (label) label.lastChild.textContent = sortAscending ? ' Asc' : ' Desc';
+    updateSortDirLabel();
     renderTorrents(torrentsCache);
     invoke('update_menu_markers', {
       sort: sortState,
@@ -698,8 +713,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     } else if (item.dataset.sortDir) {
       sortAscending = item.dataset.sortDir === 'asc';
       document.getElementById('sort-asc').checked = sortAscending;
-      const label = document.querySelector('#sort-asc-label');
-      if (label) label.lastChild.textContent = sortAscending ? ' ' + t('sort.asc') : ' ' + t('sort.desc');
+      updateSortDirLabel();
       renderTorrents(torrentsCache);
       invoke('update_menu_markers', currentMarker());
     }

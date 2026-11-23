@@ -232,8 +232,8 @@ pub fn run() {
             app.manage(tokio::sync::Mutex::new(None::<RawRpc>));
             app.manage(tokio::sync::Mutex::new(HashSet::<i64>::new()));
 
-            menu::setup_app_menu(app)?;
-            menu::setup_tray(app)?;
+            menu::setup_app_menu(app.handle())?;
+            menu::setup_tray(app.handle())?;
 
             poll::spawn_poll_loop(app.handle().clone());
 

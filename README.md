@@ -18,7 +18,7 @@ The app connects to an already running Transmission daemon over RPC (HTTP/HTTPS)
 - **System tray:** minimize-to-tray, tray icon.
 - **Notifications:** when torrents finish (configurable + test notification).
 - **Themes:** auto/light/dark, following the system preference when set to `auto`.
-- **i18n:** English and Bulgarian, auto-detected from the system language.
+- **i18n:** English and Bulgarian, auto-detected from the system language or explicitly chosen in Settings.
 
 ---
 
@@ -136,7 +136,7 @@ Settings are stored as JSON at:
 
 Key fields: `rpc_host`, `rpc_port`, `rpc_auth`, `rpc_username`, `rpc_password` (base64 on disk — obfuscation only, not crypto), `rpc_https`, `rpc_insecure`, `auto_connect`, `default_download_dir`, `theme`.
 
-Defaults (host/port/HTTPS, download dir, notifications, tray, limits) are changed from the Settings / Connection Settings windows inside the app.
+Defaults (host/port/HTTPS, download dir, language, theme, notifications, tray, limits) are changed from the Settings / Connection Settings windows inside the app.
 
 ---
 

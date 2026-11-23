@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::State;
 
+use crate::menu;
 use crate::state::AppState;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
@@ -29,6 +30,29 @@ pub(crate) enum Theme {
     Auto,
     Light,
     Dark,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum Lang {
+    #[default]
+    Auto,
+    En,
+    Bg,
+}
+
+/// Unknown language values (e.g. a config written by a newer version) fall
+/// back to `auto` instead of failing the whole config parse.
+fn lang_from_str<'de, D>(deserializer: D) -> Result<Lang, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    Ok(match value.as_str() {
+        "en" => Lang::En,
+        "bg" => Lang::Bg,
+        _ => Lang::Auto,
+    })
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -48,6 +72,8 @@ pub(crate) struct Settings {
     pub default_download_dir: Option<String>,
     #[serde(default)]
     pub theme: Theme,
+    #[serde(default, deserialize_with = "lang_from_str")]
+    pub lang: Lang,
     #[serde(default = "default_true")]
     pub notifications_enabled: bool,
     #[serde(default = "default_notification_duration")]
@@ -81,6 +107,7 @@ impl Default for Settings {
             auto_connect: true,
             default_download_dir: None,
             theme: Theme::Auto,
+            lang: Lang::Auto,
             notifications_enabled: true,
             notification_duration: 5,
             minimize_to_tray: true,
@@ -189,12 +216,18 @@ pub(crate) fn set_settings(
 ) -> Result<(), String> {
     let mut state = state.lock().unwrap();
     save_settings(&state.settings_path, &new_settings)?;
+    let lang_changed = state.settings.lang != new_settings.lang;
     state.settings = new_settings.clone();
+    drop(state);
 
     if let Some(tray) = app.tray_by_id("main-tray")
         && let Err(error) = tray.set_visible(new_settings.minimize_to_tray)
     {
         log::warn!("Failed to update tray icon visibility: {error}");
+    }
+
+    if lang_changed {
+        menu::rebuild_menus(&app);
     }
 
     let _ = app.emit("settings-changed", ());
@@ -252,7 +285,42 @@ mod tests {
         assert_eq!(settings.notification_duration, 5);
         assert!(settings.minimize_to_tray);
         assert_eq!(settings.theme, Theme::Auto);
+        assert_eq!(settings.lang, Lang::Auto);
         assert_eq!(settings.default_download_dir, None);
+    }
+
+    #[test]
+    fn lang_setting_parses_and_round_trips() {
+        let json = r#"{
+            "rpc_host": "nas.local",
+            "rpc_port": 9092,
+            "rpc_auth": false,
+            "rpc_username": "",
+            "rpc_password": "",
+            "lang": "bg"
+        }"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.lang, Lang::Bg);
+
+        let path = temp_path();
+        save_settings(&path, &settings).unwrap();
+        let loaded = load_settings(&path);
+        assert_eq!(loaded.lang, Lang::Bg);
+        fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn unknown_lang_falls_back_to_auto() {
+        let json = r#"{
+            "rpc_host": "nas.local",
+            "rpc_port": 9092,
+            "rpc_auth": false,
+            "rpc_username": "",
+            "rpc_password": "",
+            "lang": "klingon"
+        }"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.lang, Lang::Auto);
     }
 
     #[test]

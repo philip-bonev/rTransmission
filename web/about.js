@@ -41,6 +41,7 @@ async function closeDialog() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  await initLanguage();
   await applyTheme();
   applyTranslations();
 
