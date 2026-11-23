@@ -11,9 +11,9 @@
     "windows": [
       {
         "title": "rTransmission Client",
-        "width": 840,
+        "width": 870,
         "height": 600,
-        "minWidth": 840,
+        "minWidth": 870,
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false
