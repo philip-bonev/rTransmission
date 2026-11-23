@@ -459,6 +459,24 @@ pub(crate) async fn rpc_torrent_remove(
     Ok(())
 }
 
+fn build_rpc_url(host: &str, port: u16, https: bool) -> Result<url::Url, String> {
+    let host = host.trim();
+    if host.is_empty() {
+        return Err("Host must not be empty".to_string());
+    }
+    if port == 0 {
+        return Err("Port must be between 1 and 65535".to_string());
+    }
+    let host = if host.contains(':') && !host.starts_with('[') {
+        format!("[{host}]")
+    } else {
+        host.to_string()
+    };
+    let scheme = if https { "https" } else { "http" };
+    let url_str = format!("{scheme}://{host}:{port}/transmission/rpc");
+    url::Url::parse(&url_str).map_err(|e| format!("Invalid URL: {e}"))
+}
+
 #[tauri::command]
 pub(crate) async fn rpc_connect(
     app: tauri::AppHandle,
@@ -467,9 +485,7 @@ pub(crate) async fn rpc_connect(
     raw_state: State<'_, tokio::sync::Mutex<Option<RawRpc>>>,
     pause_set_state: State<'_, tokio::sync::Mutex<HashSet<i64>>>,
 ) -> Result<(), String> {
-    let scheme = if args.https { "https" } else { "http" };
-    let url_str = format!("{}://{}:{}/transmission/rpc", scheme, args.host, args.port);
-    let url = url::Url::parse(&url_str).map_err(|e| format!("Invalid URL: {}", e))?;
+    let url = build_rpc_url(&args.host, args.port, args.https)?;
 
     let mut builder = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(10))
@@ -692,7 +708,25 @@ pub(crate) async fn get_connection_state(
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_torrent_name, validate_torrent_path};
+    use super::{build_rpc_url, validate_torrent_name, validate_torrent_path};
+
+    #[test]
+    fn builds_urls_for_hostnames_and_ipv6() {
+        let url = build_rpc_url("nas.local", 9091, false).unwrap();
+        assert_eq!(url.as_str(), "http://nas.local:9091/transmission/rpc");
+
+        let url = build_rpc_url("::1", 9091, true).unwrap();
+        assert_eq!(url.as_str(), "https://[::1]:9091/transmission/rpc");
+
+        let url = build_rpc_url("[2001:db8::1]", 9091, false).unwrap();
+        assert_eq!(url.as_str(), "http://[2001:db8::1]:9091/transmission/rpc");
+    }
+
+    #[test]
+    fn rejects_empty_hosts_and_invalid_ports() {
+        assert!(build_rpc_url("   ", 9091, false).is_err());
+        assert!(build_rpc_url("localhost", 0, false).is_err());
+    }
 
     #[test]
     fn accepts_plain_torrent_names() {

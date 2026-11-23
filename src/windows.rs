@@ -35,18 +35,21 @@ pub(crate) fn ensure_main_visible(app: &tauri::AppHandle) {
     }
 }
 
-fn center_on_main(app: &tauri::AppHandle, window: &tauri::WebviewWindow, w: f64, h: f64) {
+fn center_on_main(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     ensure_main_visible(app);
-    if let Some(main) = app.get_webview_window("main")
-        && let (Ok(mpos), Ok(msize)) = (main.outer_position(), main.outer_size())
-    {
-        let cx = mpos.x as f64 + (msize.width as f64 - w) / 2.0;
-        let cy = mpos.y as f64 + (msize.height as f64 - h) / 2.0;
-        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-            x: cx as i32,
-            y: cy as i32,
-        }));
-    }
+    let Some(main) = app.get_webview_window("main") else {
+        return;
+    };
+    let (Ok(main_pos), Ok(main_size), Ok(window_size)) = (
+        main.outer_position(),
+        main.outer_size(),
+        window.outer_size(),
+    ) else {
+        return;
+    };
+    let x = main_pos.x + (main_size.width as i32 - window_size.width as i32) / 2;
+    let y = main_pos.y + (main_size.height as i32 - window_size.height as i32) / 2;
+    let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
 }
 
 struct DialogWindowSpec<'a> {
@@ -64,7 +67,7 @@ fn open_dialog_window(
     let (w, h) = spec.size;
     let (min_w, min_h) = spec.min_size;
     if let Some(window) = app.get_webview_window(spec.label) {
-        center_on_main(app, &window, w, h);
+        center_on_main(app, &window);
         window.set_focus().map_err(|e| e.to_string())?;
         return Ok(window);
     }
@@ -75,7 +78,7 @@ fn open_dialog_window(
             .min_inner_size(min_w, min_h)
             .build()
             .map_err(|e| e.to_string())?;
-    center_on_main(app, &window, w, h);
+    center_on_main(app, &window);
     window.set_focus().map_err(|e| e.to_string())?;
     Ok(window)
 }
@@ -145,7 +148,7 @@ pub(crate) fn open_add_window(
     *ADD_PAYLOAD.lock().unwrap() = Some(payload.clone());
     if let Some(window) = app.get_webview_window("add") {
         let _ = window.emit("add-data", payload);
-        center_on_main(&app, &window, 520.0, 420.0);
+        center_on_main(&app, &window);
         window.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
     }
@@ -172,7 +175,7 @@ pub(crate) fn open_delete_window(app: tauri::AppHandle, ids: Vec<i64>) -> Result
     *DELETE_IDS.lock().unwrap() = Some(ids.clone());
     if let Some(window) = app.get_webview_window("delete") {
         let _ = window.emit("delete-data", ids);
-        center_on_main(&app, &window, 400.0, 240.0);
+        center_on_main(&app, &window);
         window.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
     }
@@ -200,7 +203,7 @@ pub(crate) fn open_properties_window(app: tauri::AppHandle, id: i64) -> Result<(
 
     if let Some(window) = app.get_webview_window("properties") {
         let _ = window.emit("properties-data", ());
-        center_on_main(&app, &window, 760.0, 680.0);
+        center_on_main(&app, &window);
         window.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
     }

@@ -92,6 +92,8 @@ const en = {
   'conn.https': 'Use HTTPS (TLS)',
   'conn.insecure': 'Ignore invalid certificates',
   'conn.auto_connect': 'Connect automatically on startup',
+  'conn.host_required': 'Enter a host name or IP address.',
+  'conn.invalid_port': 'Enter a port between 1 and 65535.',
 
   // Add Torrent dialog
   'add.title': 'Add Torrent',
@@ -343,6 +345,8 @@ const bg = {
   'conn.https': 'Използвай HTTPS (TLS)',
   'conn.insecure': 'Игнорирай невалидни сертификати',
   'conn.auto_connect': 'Автоматично свързване при стартиране',
+  'conn.host_required': 'Въведете име на хост или IP адрес.',
+  'conn.invalid_port': 'Въведете порт между 1 и 65535.',
 
   'add.title': 'Добави торент',
   'add.title_url': 'Добави торент по URL',

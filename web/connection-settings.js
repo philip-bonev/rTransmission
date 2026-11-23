@@ -71,11 +71,21 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('connection-settings-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const host = document.getElementById('rpc-host').value.trim();
+    if (!host) {
+      alert(t('conn.host_required'));
+      return;
+    }
+    const port = Number(document.getElementById('rpc-port').value);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      alert(t('conn.invalid_port'));
+      return;
+    }
     let settings;
     try {
       settings = await invoke('get_settings');
-      settings.rpc_host = document.getElementById('rpc-host').value.trim();
-      settings.rpc_port = parseInt(document.getElementById('rpc-port').value) || 9091;
+      settings.rpc_host = host;
+      settings.rpc_port = port;
       settings.rpc_auth = document.getElementById('rpc-auth').checked;
       settings.rpc_username = document.getElementById('rpc-username').value;
       settings.rpc_password = document.getElementById('rpc-password').value;
