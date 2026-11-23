@@ -196,42 +196,42 @@
     </div>
   </div>
   <div id="status-bar">
-    <span id="status-connection" data-i18n="status.disconnected">● Disconnected</span>
+    <span id="status-connection" role="status" data-i18n="status.disconnected">● Disconnected</span>
     <span id="status-transfer" class="hidden"></span>
     <span id="status-alt-speed" class="hidden"></span>
   </div>
 
-  <div id="context-menu" class="context-menu hidden">
-    <div class="context-item" data-action="play" data-i18n="ctx.play">Play</div>
-    <div class="context-item" data-action="pause" data-i18n="ctx.pause">Pause</div>
-    <div class="context-item" data-action="delete" data-i18n="ctx.delete">Delete</div>
-    <div class="context-item" data-action="verify" data-i18n="ctx.verify">Verify</div>
-    <div class="context-separator"></div>
-    <div class="context-item has-submenu">
+  <div id="context-menu" class="context-menu hidden" role="menu">
+    <div class="context-item" role="menuitem" data-action="play" data-i18n="ctx.play">Play</div>
+    <div class="context-item" role="menuitem" data-action="pause" data-i18n="ctx.pause">Pause</div>
+    <div class="context-item" role="menuitem" data-action="delete" data-i18n="ctx.delete">Delete</div>
+    <div class="context-item" role="menuitem" data-action="verify" data-i18n="ctx.verify">Verify</div>
+    <div class="context-separator" role="separator"></div>
+    <div class="context-item has-submenu" role="menuitem" aria-haspopup="true">
       <span data-i18n="ctx.filter">Filter</span>
       <span class="context-arrow">▸</span>
-      <div class="context-submenu" id="ctx-filter-submenu">
-        <div class="context-item" data-filter="all" data-label="ctx.all" data-i18n="ctx.all">All</div>
-        <div class="context-item" data-filter="downloading" data-label="filter.downloading" data-i18n="filter.downloading">Downloading</div>
-        <div class="context-item" data-filter="paused" data-label="filter.paused" data-i18n="filter.paused">Paused</div>
-        <div class="context-item" data-filter="seeding" data-label="filter.seeding" data-i18n="filter.seeding">Seeding</div>
-        <div class="context-item" data-filter="verifying" data-label="filter.verifying" data-i18n="filter.verifying">Verifying</div>
-        <div class="context-item" data-filter="finished" data-label="filter.finished" data-i18n="filter.finished">Finished</div>
+      <div class="context-submenu" id="ctx-filter-submenu" role="menu">
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-filter="all" data-label="ctx.all" data-i18n="ctx.all">All</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-filter="downloading" data-label="filter.downloading" data-i18n="filter.downloading">Downloading</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-filter="paused" data-label="filter.paused" data-i18n="filter.paused">Paused</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-filter="seeding" data-label="filter.seeding" data-i18n="filter.seeding">Seeding</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-filter="verifying" data-label="filter.verifying" data-i18n="filter.verifying">Verifying</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-filter="finished" data-label="filter.finished" data-i18n="filter.finished">Finished</div>
       </div>
     </div>
-    <div class="context-item has-submenu">
+    <div class="context-item has-submenu" role="menuitem" aria-haspopup="true">
       <span data-i18n="ctx.sort">Sort</span>
       <span class="context-arrow">▸</span>
-      <div class="context-submenu" id="ctx-sort-submenu">
-        <div class="context-item" data-sort="date" data-label="sort.date" data-i18n="sort.date">Date</div>
-        <div class="context-item" data-sort="leechers" data-label="sort.leechers" data-i18n="sort.leechers">Leechers</div>
-        <div class="context-item" data-sort="name" data-label="sort.name" data-i18n="sort.name">Name</div>
-        <div class="context-item" data-sort="queue" data-label="sort.queue" data-i18n="sort.queue">Queue</div>
-        <div class="context-item" data-sort="seeders" data-label="sort.seeders" data-i18n="sort.seeders">Seeders</div>
-        <div class="context-item" data-sort="size" data-label="sort.size" data-i18n="sort.size">Size</div>
-        <div class="context-separator"></div>
-        <div class="context-item" data-sort-dir="asc" data-label="ctx.ascending" data-i18n="ctx.ascending">Ascending</div>
-        <div class="context-item" data-sort-dir="desc" data-label="ctx.descending" data-i18n="ctx.descending">Descending</div>
+      <div class="context-submenu" id="ctx-sort-submenu" role="menu">
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-sort="date" data-label="sort.date" data-i18n="sort.date">Date</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-sort="leechers" data-label="sort.leechers" data-i18n="sort.leechers">Leechers</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-sort="name" data-label="sort.name" data-i18n="sort.name">Name</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-sort="queue" data-label="sort.queue" data-i18n="sort.queue">Queue</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-sort="seeders" data-label="sort.seeders" data-i18n="sort.seeders">Seeders</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-sort="size" data-label="sort.size" data-i18n="sort.size">Size</div>
+        <div class="context-separator" role="separator"></div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-sort-dir="asc" data-label="ctx.ascending" data-i18n="ctx.ascending">Ascending</div>
+        <div class="context-item" role="menuitemcheckbox" aria-checked="false" data-sort-dir="desc" data-label="ctx.descending" data-i18n="ctx.descending">Descending</div>
       </div>
     </div>
   </div>

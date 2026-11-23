@@ -62,10 +62,10 @@ function formatTimeLeft(seconds) {
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-  return `${seconds % 60}s`;
+  if (days > 0) return `${days}${t('time.d')} ${hours}${t('time.h')} ${minutes}${t('time.m')}`;
+  if (hours > 0) return `${hours}${t('time.h')} ${minutes}${t('time.m')}`;
+  if (minutes > 0) return `${minutes}${t('time.m')} ${seconds % 60}${t('time.s')}`;
+  return `${seconds % 60}${t('time.s')}`;
 }
 
 function formatSpeed(bytesPerSec) {
@@ -404,15 +404,20 @@ async function openDeleteWindow() {
 
 function updateContextMenuChecks() {
   document.querySelectorAll('#ctx-filter-submenu .context-item').forEach(el => {
-    el.textContent = (el.dataset.filter === filterState ? '✓ ' : '') + t(el.dataset.label);
+    const active = el.dataset.filter === filterState;
+    el.textContent = (active ? '✓ ' : '') + t(el.dataset.label);
+    el.setAttribute('aria-checked', active ? 'true' : 'false');
   });
   document.querySelectorAll('#ctx-sort-submenu .context-item').forEach(el => {
     const base = t(el.dataset.label);
     if (el.dataset.sort) {
-      el.textContent = (el.dataset.sort === sortState ? '✓ ' : '') + base;
+      const active = el.dataset.sort === sortState;
+      el.textContent = (active ? '✓ ' : '') + base;
+      el.setAttribute('aria-checked', active ? 'true' : 'false');
     } else if (el.dataset.sortDir) {
       const active = el.dataset.sortDir === (sortAscending ? 'asc' : 'desc');
       el.textContent = (active ? '✓ ' : '') + base;
+      el.setAttribute('aria-checked', active ? 'true' : 'false');
     }
   });
 }

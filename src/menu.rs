@@ -23,6 +23,69 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 
 use crate::state::AppState;
 
+#[cfg(target_os = "windows")]
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    fn GetUserDefaultLocaleName(lp_locale_name: *mut u16, cch_locale_name: i32) -> i32;
+}
+
+#[cfg(target_os = "windows")]
+fn windows_locale() -> String {
+    let mut buf = [0u16; 85];
+    let len = unsafe { GetUserDefaultLocaleName(buf.as_mut_ptr(), buf.len() as i32) };
+    if len > 1 {
+        String::from_utf16_lossy(&buf[..len as usize - 1])
+    } else {
+        String::new()
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn apple_languages() -> Option<String> {
+    let output = std::process::Command::new("defaults")
+        .args(["read", "-g", "AppleLanguages"])
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .find_map(|line| {
+            let line = line
+                .trim()
+                .trim_matches(|c: char| c == '"' || c == ',' || c == '(' || c == ')');
+            (!line.is_empty()).then(|| line.to_string())
+        })
+}
+
+#[cfg(not(target_os = "windows"))]
+fn env_locale() -> String {
+    ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .into_iter()
+        .find_map(|var| std::env::var(var).ok().filter(|value| !value.is_empty()))
+        .unwrap_or_default()
+}
+
+fn system_locale() -> String {
+    #[cfg(target_os = "windows")]
+    let locale = windows_locale();
+    #[cfg(target_os = "macos")]
+    let locale = apple_languages().unwrap_or_else(env_locale);
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let locale = env_locale();
+    locale
+}
+
+/// Translate a native menu label. Only English and Bulgarian are supported;
+/// any other system locale falls back to English.
+fn tr(en: &'static str, bg: &'static str) -> &'static str {
+    static LOCALE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    let locale = LOCALE.get_or_init(system_locale);
+    if locale.to_lowercase().starts_with("bg") {
+        bg
+    } else {
+        en
+    }
+}
+
 fn mark_active(items: &HashMap<String, (tauri::menu::MenuItem<tauri::Wry>, String)>, active: &str) {
     for (key, (item, base)) in items {
         let text = if key == active {
@@ -51,14 +114,14 @@ pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
     let connection_settings = MenuItem::with_id(
         app,
         "connection-settings",
-        "Connection Settings…",
+        tr("Connection Settings…", "Настройки на връзката…"),
         true,
         None::<&str>,
     )?;
     let about = MenuItem::with_id(
         app,
         "about",
-        "About rTransmission Client",
+        tr("About rTransmission Client", "Относно rTransmission Client"),
         true,
         None::<&str>,
     )?;
@@ -103,14 +166,37 @@ pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
         }
     };
 
-    let add_url = MenuItem::with_id(app, "add-url", "Add Torrent URL…", true, None::<&str>)?;
-    let add_magnet = MenuItem::with_id(app, "add-magnet", "Add Magnet Link…", true, None::<&str>)?;
-    let add_file = MenuItem::with_id(app, "add-file", "Add Torrent File…", true, None::<&str>)?;
-    let file_menu = Submenu::with_items(app, "File", true, &[&add_url, &add_magnet, &add_file])?;
+    let add_url = MenuItem::with_id(
+        app,
+        "add-url",
+        tr("Add Torrent URL…", "Добави торент по URL…"),
+        true,
+        None::<&str>,
+    )?;
+    let add_magnet = MenuItem::with_id(
+        app,
+        "add-magnet",
+        tr("Add Magnet Link…", "Добави магнитна връзка…"),
+        true,
+        None::<&str>,
+    )?;
+    let add_file = MenuItem::with_id(
+        app,
+        "add-file",
+        tr("Add Torrent File…", "Добави торент файл…"),
+        true,
+        None::<&str>,
+    )?;
+    let file_menu = Submenu::with_items(
+        app,
+        tr("File", "Файл"),
+        true,
+        &[&add_url, &add_magnet, &add_file],
+    )?;
 
     let edit_menu = Submenu::with_items(
         app,
-        "Edit",
+        tr("Edit", "Редактиране"),
         true,
         &[
             &PredefinedMenuItem::undo(app, None)?,
@@ -123,20 +209,24 @@ pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
         ],
     )?;
 
-    let play = MenuItem::with_id(app, "play", "Play", true, None::<&str>)?;
-    let pause = MenuItem::with_id(app, "pause", "Pause", true, None::<&str>)?;
-    let delete = MenuItem::with_id(app, "delete", "Delete", true, None::<&str>)?;
-    let verify = MenuItem::with_id(app, "verify", "Verify", true, None::<&str>)?;
-    let torrent_menu =
-        Submenu::with_items(app, "Torrent", true, &[&play, &pause, &delete, &verify])?;
+    let play = MenuItem::with_id(app, "play", tr("Play", "Старт"), true, None::<&str>)?;
+    let pause = MenuItem::with_id(app, "pause", tr("Pause", "Пауза"), true, None::<&str>)?;
+    let delete = MenuItem::with_id(app, "delete", tr("Delete", "Изтриване"), true, None::<&str>)?;
+    let verify = MenuItem::with_id(app, "verify", tr("Verify", "Проверка"), true, None::<&str>)?;
+    let torrent_menu = Submenu::with_items(
+        app,
+        tr("Torrent", "Торент"),
+        true,
+        &[&play, &pause, &delete, &verify],
+    )?;
 
     let sort_defs = [
-        ("sort-date", "Date"),
-        ("sort-leechers", "Leechers"),
-        ("sort-name", "Name"),
-        ("sort-queue", "Queue"),
-        ("sort-seeders", "Seeders"),
-        ("sort-size", "Size"),
+        ("sort-date", tr("Date", "Дата")),
+        ("sort-leechers", tr("Leechers", "Лийчъри")),
+        ("sort-name", tr("Name", "Име")),
+        ("sort-queue", tr("Queue", "Опашка")),
+        ("sort-seeders", tr("Seeders", "Сийдъри")),
+        ("sort-size", tr("Size", "Размер")),
     ];
     let sort_items = sort_defs
         .iter()
@@ -146,8 +236,8 @@ pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
         })
         .collect::<tauri::Result<HashMap<_, _>>>()?;
     let sort_dir_defs = [
-        ("sort-asc", "Sort Ascending"),
-        ("sort-desc", "Sort Descending"),
+        ("sort-asc", tr("Sort Ascending", "Сортиране възходящо")),
+        ("sort-desc", tr("Sort Descending", "Сортиране низходящо")),
     ];
     let sort_dir_items = sort_dir_defs
         .iter()
@@ -190,15 +280,15 @@ pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
                 .map(|&b| b as &dyn tauri::menu::IsMenuItem<tauri::Wry>),
         )
         .collect();
-    let sort_menu = Submenu::with_items(app, "Sort", true, &sort_all_buttons)?;
+    let sort_menu = Submenu::with_items(app, tr("Sort", "Сортиране"), true, &sort_all_buttons)?;
 
     let filter_defs = [
-        ("filter-all", "All"),
-        ("filter-downloading", "Downloading"),
-        ("filter-finished", "Finished"),
-        ("filter-paused", "Paused"),
-        ("filter-seeding", "Seeding"),
-        ("filter-verifying", "Verifying"),
+        ("filter-all", tr("All", "Всички")),
+        ("filter-downloading", tr("Downloading", "Сваляне")),
+        ("filter-finished", tr("Finished", "Завършено")),
+        ("filter-paused", tr("Paused", "Паузирано")),
+        ("filter-seeding", tr("Seeding", "Споделяне")),
+        ("filter-verifying", tr("Verifying", "Проверка")),
     ];
     let filter_items = filter_defs
         .iter()
@@ -211,7 +301,7 @@ pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
         .values()
         .map(|(item, _)| item as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
         .collect();
-    let filter_menu = Submenu::with_items(app, "Filter", true, &filter_buttons)?;
+    let filter_menu = Submenu::with_items(app, tr("Filter", "Филтър"), true, &filter_buttons)?;
 
     let mut sort_state_map = HashMap::new();
     for (id, (item, label)) in &sort_items {
@@ -308,8 +398,8 @@ pub(crate) fn setup_app_menu(app: &tauri::App) -> tauri::Result<()> {
 }
 
 pub(crate) fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
-    let show_i = MenuItem::with_id(app, "tray-show", "Show", true, None::<&str>)?;
-    let quit_i = MenuItem::with_id(app, "tray-quit", "Quit", true, None::<&str>)?;
+    let show_i = MenuItem::with_id(app, "tray-show", tr("Show", "Покажи"), true, None::<&str>)?;
+    let quit_i = MenuItem::with_id(app, "tray-quit", tr("Quit", "Изход"), true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
     let minimize_to_tray = app

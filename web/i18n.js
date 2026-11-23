@@ -76,6 +76,10 @@ const en = {
 
   // Torrent card (alternate keys used by main.js)
   'time.done': 'Done',
+  'time.d': 'd',
+  'time.h': 'h',
+  'time.m': 'm',
+  'time.s': 's',
   'torrent.queue': 'Queue',
   'torrent.time_left': 'Time left',
   'torrent.seeders_short': 'Se',
@@ -330,6 +334,10 @@ const bg = {
   'status.total': 'Общо',
 
   'time.done': 'Готово',
+  'time.d': 'д',
+  'time.h': 'ч',
+  'time.m': 'м',
+  'time.s': 'с',
   'torrent.queue': 'Опашка',
   'torrent.time_left': 'Остава',
   'torrent.seeders_short': 'Сй',

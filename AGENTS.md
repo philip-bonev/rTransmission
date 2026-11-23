@@ -72,6 +72,7 @@
 ## 7. i18n (Internationalization)
 - **System:** `web/i18n.js` provides `t(key)` for translations and `applyTranslations()` to update DOM.
 - **Languages:** English (default) and Bulgarian (`bg`). Detection via `navigator.language.startsWith('bg')`.
+- **Native menus:** Rust-side labels in `src/menu.rs` use `tr(en, bg)` with system locale detection (`AppleLanguages` on macOS, `GetUserDefaultLocaleName` on Windows, `LC_ALL`/`LC_MESSAGES`/`LANG` elsewhere) and English fallback.
 - **Static text:** Use `data-i18n="key"` on HTML elements for textContent, `data-i18n-title` for title attrs, `data-i18n-placeholder` for placeholder attrs.
 - **Dynamic text:** Call `t('key')` in JS. For parameterized strings, use `t('key', param)` — the dict value is a function `(p) => ...`.
 - **On load:** Call `applyTranslations()` after DOM is ready (in `DOMContentLoaded` for main.js, in `load()` for properties.js).

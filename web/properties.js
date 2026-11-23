@@ -58,14 +58,14 @@ function formatDate(ts) {
 
 function formatEta(seconds) {
   if (seconds == null || seconds < 0) return '—';
-  if (seconds === 0) return 'Done';
+  if (seconds === 0) return t('time.done');
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-  return `${seconds % 60}s`;
+  if (days > 0) return `${days}${t('time.d')} ${hours}${t('time.h')} ${minutes}${t('time.m')}`;
+  if (hours > 0) return `${hours}${t('time.h')} ${minutes}${t('time.m')}`;
+  if (minutes > 0) return `${minutes}${t('time.m')} ${seconds % 60}${t('time.s')}`;
+  return `${seconds % 60}${t('time.s')}`;
 }
 
 function renderDetails(torrent) {
