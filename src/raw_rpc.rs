@@ -17,31 +17,35 @@ use transmission_rpc::types::BasicAuth;
 
 use crate::models::{AltSpeedInfo, SessionSettings};
 
-fn field<'a>(args: &'a Value, key: &str) -> Result<&'a Value, String> {
-    args.get(key)
-        .ok_or_else(|| format!("Transmission response is missing '{key}'"))
+/// Look up a field by its RPC name. The Transmission session fields are
+/// kebab-case except `seedRatioLimit`/`seedRatioLimited` (camelCase per the
+/// RPC spec), so callers may list accepted spellings, preferred first.
+fn field<'a>(args: &'a Value, keys: &[&str]) -> Result<&'a Value, String> {
+    keys.iter()
+        .find_map(|key| args.get(*key))
+        .ok_or_else(|| format!("Transmission response is missing '{}'", keys[0]))
 }
 
-fn req_i64(args: &Value, key: &str) -> Result<i64, String> {
-    field(args, key)?
+fn req_i64(args: &Value, keys: &[&str]) -> Result<i64, String> {
+    field(args, keys)?
         .as_i64()
-        .ok_or_else(|| format!("'{key}' is not an integer"))
+        .ok_or_else(|| format!("'{}' is not an integer", keys[0]))
 }
 
-fn req_i32(args: &Value, key: &str) -> Result<i32, String> {
-    i32::try_from(req_i64(args, key)?).map_err(|_| format!("'{key}' is out of range"))
+fn req_i32(args: &Value, keys: &[&str]) -> Result<i32, String> {
+    i32::try_from(req_i64(args, keys)?).map_err(|_| format!("'{}' is out of range", keys[0]))
 }
 
-fn req_f64(args: &Value, key: &str) -> Result<f64, String> {
-    field(args, key)?
+fn req_f64(args: &Value, keys: &[&str]) -> Result<f64, String> {
+    field(args, keys)?
         .as_f64()
-        .ok_or_else(|| format!("'{key}' is not a number"))
+        .ok_or_else(|| format!("'{}' is not a number", keys[0]))
 }
 
-fn req_bool(args: &Value, key: &str) -> Result<bool, String> {
-    field(args, key)?
+fn req_bool(args: &Value, keys: &[&str]) -> Result<bool, String> {
+    field(args, keys)?
         .as_bool()
-        .ok_or_else(|| format!("'{key}' is not a boolean"))
+        .ok_or_else(|| format!("'{}' is not a boolean", keys[0]))
 }
 
 fn validate_response(json: &Value) -> Result<(), String> {
@@ -106,10 +110,10 @@ impl RawRpc {
 
     pub(crate) async fn alt_speed(&self) -> Result<AltSpeedInfo, String> {
         let json = self.call("session-get", None).await?;
-        let args = field(&json, "arguments")?;
-        let enabled = req_bool(args, "alt-speed-enabled")?;
-        let download_limit = (req_f64(args, "alt-speed-down")? * 1024.0).round() as i64;
-        let upload_limit = (req_f64(args, "alt-speed-up")? * 1024.0).round() as i64;
+        let args = field(&json, &["arguments"])?;
+        let enabled = req_bool(args, &["alt-speed-enabled"])?;
+        let download_limit = (req_f64(args, &["alt-speed-down"])? * 1024.0).round() as i64;
+        let upload_limit = (req_f64(args, &["alt-speed-up"])? * 1024.0).round() as i64;
         Ok(AltSpeedInfo {
             enabled,
             download_limit,
@@ -128,66 +132,70 @@ impl RawRpc {
 
     pub(crate) async fn get_session_settings(&self) -> Result<SessionSettings, String> {
         let json = self.call("session-get", None).await?;
-        let args = field(&json, "arguments")?;
-        Ok(SessionSettings {
-            download_queue_size: req_i32(args, "download-queue-size")?,
-            download_queue_enabled: req_bool(args, "download-queue-enabled")?,
-            seed_ratio_limit: req_f64(args, "seed-ratio-limit")?,
-            seed_ratio_limited: req_bool(args, "seed-ratio-limited")?,
-            idle_seeding_limit: req_i32(args, "idle-seeding-limit")?,
-            idle_seeding_limit_enabled: req_bool(args, "idle-seeding-limit-enabled")?,
-            speed_limit_down: req_i32(args, "speed-limit-down")?,
-            speed_limit_down_enabled: req_bool(args, "speed-limit-down-enabled")?,
-            speed_limit_up: req_i32(args, "speed-limit-up")?,
-            speed_limit_up_enabled: req_bool(args, "speed-limit-up-enabled")?,
-            alt_speed_down: req_i32(args, "alt-speed-down")?,
-            alt_speed_up: req_i32(args, "alt-speed-up")?,
-        })
+        let args = field(&json, &["arguments"])?;
+        parse_session_settings(args)
     }
 
     pub(crate) async fn set_session_settings(
         &self,
         settings: &SessionSettings,
     ) -> Result<(), String> {
-        for (key, value) in [
-            (
-                "download-queue-size",
-                i64::from(settings.download_queue_size),
-            ),
-            ("idle-seeding-limit", i64::from(settings.idle_seeding_limit)),
-            ("speed-limit-down", i64::from(settings.speed_limit_down)),
-            ("speed-limit-up", i64::from(settings.speed_limit_up)),
-            ("alt-speed-down", i64::from(settings.alt_speed_down)),
-            ("alt-speed-up", i64::from(settings.alt_speed_up)),
-        ] {
-            if value < 0 {
-                return Err(format!("'{key}' must not be negative"));
-            }
-        }
-        if !settings.seed_ratio_limit.is_finite() || settings.seed_ratio_limit < 0.0 {
-            return Err("'seed-ratio-limit' must be a non-negative number".to_string());
-        }
-
-        self.call(
-            "session-set",
-            Some(serde_json::json!({
-                "download-queue-size": settings.download_queue_size,
-                "download-queue-enabled": settings.download_queue_enabled,
-                "seed-ratio-limit": settings.seed_ratio_limit,
-                "seed-ratio-limited": settings.seed_ratio_limited,
-                "idle-seeding-limit": settings.idle_seeding_limit,
-                "idle-seeding-limit-enabled": settings.idle_seeding_limit_enabled,
-                "speed-limit-down": settings.speed_limit_down,
-                "speed-limit-down-enabled": settings.speed_limit_down_enabled,
-                "speed-limit-up": settings.speed_limit_up,
-                "speed-limit-up-enabled": settings.speed_limit_up_enabled,
-                "alt-speed-down": settings.alt_speed_down,
-                "alt-speed-up": settings.alt_speed_up,
-            })),
-        )
-        .await?;
+        self.call("session-set", Some(session_settings_payload(settings)?))
+            .await?;
         Ok(())
     }
+}
+
+fn parse_session_settings(args: &Value) -> Result<SessionSettings, String> {
+    Ok(SessionSettings {
+        download_queue_size: req_i32(args, &["download-queue-size"])?,
+        download_queue_enabled: req_bool(args, &["download-queue-enabled"])?,
+        seed_ratio_limit: req_f64(args, &["seedRatioLimit", "seed-ratio-limit"])?,
+        seed_ratio_limited: req_bool(args, &["seedRatioLimited", "seed-ratio-limited"])?,
+        idle_seeding_limit: req_i32(args, &["idle-seeding-limit"])?,
+        idle_seeding_limit_enabled: req_bool(args, &["idle-seeding-limit-enabled"])?,
+        speed_limit_down: req_i32(args, &["speed-limit-down"])?,
+        speed_limit_down_enabled: req_bool(args, &["speed-limit-down-enabled"])?,
+        speed_limit_up: req_i32(args, &["speed-limit-up"])?,
+        speed_limit_up_enabled: req_bool(args, &["speed-limit-up-enabled"])?,
+        alt_speed_down: req_i32(args, &["alt-speed-down"])?,
+        alt_speed_up: req_i32(args, &["alt-speed-up"])?,
+    })
+}
+
+fn session_settings_payload(settings: &SessionSettings) -> Result<Value, String> {
+    for (key, value) in [
+        (
+            "download-queue-size",
+            i64::from(settings.download_queue_size),
+        ),
+        ("idle-seeding-limit", i64::from(settings.idle_seeding_limit)),
+        ("speed-limit-down", i64::from(settings.speed_limit_down)),
+        ("speed-limit-up", i64::from(settings.speed_limit_up)),
+        ("alt-speed-down", i64::from(settings.alt_speed_down)),
+        ("alt-speed-up", i64::from(settings.alt_speed_up)),
+    ] {
+        if value < 0 {
+            return Err(format!("'{key}' must not be negative"));
+        }
+    }
+    if !settings.seed_ratio_limit.is_finite() || settings.seed_ratio_limit < 0.0 {
+        return Err("'seedRatioLimit' must be a non-negative number".to_string());
+    }
+    Ok(serde_json::json!({
+        "download-queue-size": settings.download_queue_size,
+        "download-queue-enabled": settings.download_queue_enabled,
+        "seedRatioLimit": settings.seed_ratio_limit,
+        "seedRatioLimited": settings.seed_ratio_limited,
+        "idle-seeding-limit": settings.idle_seeding_limit,
+        "idle-seeding-limit-enabled": settings.idle_seeding_limit_enabled,
+        "speed-limit-down": settings.speed_limit_down,
+        "speed-limit-down-enabled": settings.speed_limit_down_enabled,
+        "speed-limit-up": settings.speed_limit_up,
+        "speed-limit-up-enabled": settings.speed_limit_up_enabled,
+        "alt-speed-down": settings.alt_speed_down,
+        "alt-speed-up": settings.alt_speed_up,
+    }))
 }
 
 #[cfg(test)]
@@ -216,19 +224,99 @@ mod tests {
     #[test]
     fn field_helpers_report_missing_and_wrong_types() {
         let args = json!({ "count": 5, "enabled": true, "ratio": 2.5 });
-        assert_eq!(req_i64(&args, "count").unwrap(), 5);
-        assert_eq!(req_i32(&args, "count").unwrap(), 5);
-        assert!(req_bool(&args, "enabled").unwrap());
-        assert_eq!(req_f64(&args, "ratio").unwrap(), 2.5);
-        assert!(field(&args, "missing").is_err());
-        assert!(req_i64(&args, "enabled").is_err());
-        assert!(req_bool(&args, "count").is_err());
-        assert!(req_f64(&args, "missing").is_err());
+        assert_eq!(req_i64(&args, &["count"]).unwrap(), 5);
+        assert_eq!(req_i32(&args, &["count"]).unwrap(), 5);
+        assert!(req_bool(&args, &["enabled"]).unwrap());
+        assert_eq!(req_f64(&args, &["ratio"]).unwrap(), 2.5);
+        assert!(field(&args, &["missing"]).is_err());
+        assert!(req_i64(&args, &["enabled"]).is_err());
+        assert!(req_bool(&args, &["count"]).is_err());
+        assert!(req_f64(&args, &["missing"]).is_err());
+    }
+
+    #[test]
+    fn field_helpers_accept_fallback_spellings() {
+        let args = json!({ "camel": 2.5, "kebab": true });
+        assert_eq!(req_f64(&args, &["camel", "kebab"]).unwrap(), 2.5);
+        assert!(req_bool(&args, &["other", "kebab"]).unwrap());
     }
 
     #[test]
     fn integer_fields_are_range_checked() {
         let args = json!({ "big": i64::from(i32::MAX) + 1 });
-        assert!(req_i32(&args, "big").is_err());
+        assert!(req_i32(&args, &["big"]).is_err());
+    }
+
+    fn full_session_args() -> Value {
+        json!({
+            "download-queue-size": 4,
+            "download-queue-enabled": true,
+            "seedRatioLimit": 2.0,
+            "seedRatioLimited": true,
+            "idle-seeding-limit": 30,
+            "idle-seeding-limit-enabled": true,
+            "speed-limit-down": 10000,
+            "speed-limit-down-enabled": true,
+            "speed-limit-up": 1000,
+            "speed-limit-up-enabled": true,
+            "alt-speed-down": 6000,
+            "alt-speed-up": 500,
+        })
+    }
+
+    #[test]
+    fn parses_spec_session_settings() {
+        // Regression: the RPC spec spells the seed ratio fields in camelCase
+        // while every other session field is kebab-case.
+        let settings = parse_session_settings(&full_session_args()).unwrap();
+        assert_eq!(settings.download_queue_size, 4);
+        assert!(settings.download_queue_enabled);
+        assert_eq!(settings.seed_ratio_limit, 2.0);
+        assert!(settings.seed_ratio_limited);
+        assert_eq!(settings.idle_seeding_limit, 30);
+        assert_eq!(settings.speed_limit_down, 10000);
+        assert_eq!(settings.speed_limit_up, 1000);
+        assert_eq!(settings.alt_speed_down, 6000);
+        assert_eq!(settings.alt_speed_up, 500);
+    }
+
+    #[test]
+    fn accepts_kebab_seed_ratio_spelling() {
+        let mut args = full_session_args();
+        let obj = args.as_object_mut().unwrap();
+        obj.remove("seedRatioLimit");
+        obj.remove("seedRatioLimited");
+        obj.insert("seed-ratio-limit".into(), json!(1.5));
+        obj.insert("seed-ratio-limited".into(), json!(false));
+        let settings = parse_session_settings(&args).unwrap();
+        assert_eq!(settings.seed_ratio_limit, 1.5);
+        assert!(!settings.seed_ratio_limited);
+    }
+
+    #[test]
+    fn rejects_incomplete_session_settings() {
+        let mut args = full_session_args();
+        args.as_object_mut().unwrap().remove("download-queue-size");
+        assert!(parse_session_settings(&args).is_err());
+    }
+
+    #[test]
+    fn session_payload_uses_spec_field_names() {
+        let settings = parse_session_settings(&full_session_args()).unwrap();
+        let payload = session_settings_payload(&settings).unwrap();
+        assert_eq!(payload.get("seedRatioLimit"), Some(&json!(2.0)));
+        assert_eq!(payload.get("seedRatioLimited"), Some(&json!(true)));
+        assert_eq!(payload.get("download-queue-size"), Some(&json!(4)));
+        assert!(payload.get("seed-ratio-limit").is_none());
+    }
+
+    #[test]
+    fn session_payload_rejects_invalid_values() {
+        let mut settings = parse_session_settings(&full_session_args()).unwrap();
+        settings.seed_ratio_limit = -1.0;
+        assert!(session_settings_payload(&settings).is_err());
+        let mut settings = parse_session_settings(&full_session_args()).unwrap();
+        settings.download_queue_size = -1;
+        assert!(session_settings_payload(&settings).is_err());
     }
 }

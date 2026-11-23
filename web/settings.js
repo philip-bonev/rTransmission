@@ -111,7 +111,7 @@ async function load() {
         document.getElementById(id).value = '';
       });
       setRemoteDisabled(true);
-      setRemoteError(t('settings.remote_load_failed'));
+      setRemoteError(`${t('settings.remote_load_failed')} (${String(e)})`);
     }
   } else {
     remoteSettings = null;
