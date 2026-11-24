@@ -366,8 +366,27 @@ fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     Ok(menu)
 }
 
+/// Attach the application menu. macOS has a single app-wide menu bar; Windows
+/// and Linux show one menu bar per window, so there the menu is attached to the
+/// main window only and dialog windows stay menu-free.
+fn apply_app_menu(app: &tauri::AppHandle, menu: Menu<tauri::Wry>) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        app.set_menu(menu)?;
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        if let Some(window) = app.get_webview_window("main") {
+            window.set_menu(menu)?;
+        } else {
+            log::warn!("main window not found; application menu not applied");
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn setup_app_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
-    app.set_menu(build_app_menu(app)?)?;
+    apply_app_menu(app, build_app_menu(app)?)?;
     app.on_menu_event(|app_handle, event| {
         let id = event.id().as_ref();
         match id {
@@ -433,7 +452,7 @@ fn build_tray_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 /// Rebuild the native menus after a language change. Event handlers stay
 /// registered — only the menu items (and their labels) are recreated.
 pub(crate) fn rebuild_menus(app: &tauri::AppHandle) {
-    if let Err(error) = build_app_menu(app).and_then(|menu| app.set_menu(menu)) {
+    if let Err(error) = build_app_menu(app).and_then(|menu| apply_app_menu(app, menu)) {
         log::warn!("Failed to rebuild app menu: {error}");
     }
     if let Some(tray) = app.tray_by_id("main-tray") {
